@@ -1,0 +1,47 @@
+{
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/e/**",
+        "function": "ogTags"
+      },
+      {
+        "source": "/b/**",
+        "function": "bandPreview"
+      },
+      {
+        "source": "/privacy",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/terms",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/bands",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/profile",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/band/**",
+        "destination": "/index.html"
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
+  "functions": {
+    "source": "functions"
+  }
+}
