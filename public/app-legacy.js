@@ -2787,5 +2787,13 @@ async function submitAvailability() {
         if (signInPrompt && window.currentUser) {
             signInPrompt.style.display = 'none';
         }
+        }
+    } catch (error) {
+        console.error("Error submitting availability:", error);
+        alert("Error submitting. Please try again.");
+    } finally {
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = false;
+        btn.innerHTML = 'Submit Availability';
     }
 });
