@@ -1316,9 +1316,6 @@ async function viewMusicianProfile(userId) {
     // Store for contact
     window.viewingMusicianId = userId;
     
-    // Check if viewing own profile
-    const isOwnProfile = window.currentUser && window.currentUser.uid === userId;
-    
     try {
         const profileRef = doc(db, "users", userId);
         const profileSnap = await getDoc(profileRef);
