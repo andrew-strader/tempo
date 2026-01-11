@@ -813,6 +813,15 @@ async function showEditProfile() {
         setSelectedInstruments('editInstrumentGrid', profile.instruments, 'editOtherInstrument');
         loadAvatar(profile.photoURL);
         
+        // Load new fields
+        document.getElementById('editProfileInfluences').value = profile.influences || '';
+        document.getElementById('editProfileWorkingOn').value = profile.workingOn || '';
+        document.getElementById('editProfileGear').value = profile.gear || '';
+        
+        // Load genre tags
+        window.genreTags = profile.genres || [];
+        renderTags('genre');
+        
         // Show calendar connection status
         updateCalendarUI(profile.calendarConnected);
     } else {
@@ -820,6 +829,13 @@ async function showEditProfile() {
         document.getElementById('editProfileName').value = user.displayName || '';
         loadAvatar(user.photoURL);
         updateCalendarUI(false);
+        
+        // Clear new fields
+        document.getElementById('editProfileInfluences').value = '';
+        document.getElementById('editProfileWorkingOn').value = '';
+        document.getElementById('editProfileGear').value = '';
+        window.genreTags = [];
+        renderTags('genre');
     }
 }
 window.showEditProfile = showEditProfile;
@@ -918,6 +934,12 @@ async function updateProfile() {
     const instruments = getSelectedInstruments('editInstrumentGrid', 'editOtherInstrument');
     const discoverable = document.getElementById('editProfileDiscoverable').checked;
     
+    // New fields
+    const genres = window.genreTags || [];
+    const influences = document.getElementById('editProfileInfluences')?.value.trim() || '';
+    const workingOn = document.getElementById('editProfileWorkingOn')?.value.trim() || '';
+    const gear = document.getElementById('editProfileGear')?.value.trim() || '';
+    
     if (!name) {
         alert('Please enter your name');
         return;
@@ -952,6 +974,10 @@ async function updateProfile() {
             instruments,
             discoverable,
             photoURL,
+            genres,
+            influences,
+            workingOn,
+            gear,
             updatedAt: serverTimestamp()
         };
         
@@ -1277,11 +1303,47 @@ async function viewMusicianProfile(userId) {
             .map(i => `<span class="instrument-tag">${getInstrumentLabel(i)}</span>`)
             .join('');
         
+        // Display genres
+        const genresDiv = document.getElementById('viewProfileGenres');
+        if (profile.genres && profile.genres.length > 0) {
+            genresDiv.innerHTML = profile.genres
+                .map(g => `<span class="genre-tag">${escapeHtml(g)}</span>`)
+                .join('');
+            genresDiv.style.display = 'flex';
+        } else {
+            genresDiv.style.display = 'none';
+        }
+        
+        // Display bio
         if (profile.bio) {
             document.getElementById('viewProfileBio').textContent = profile.bio;
             document.getElementById('viewProfileBioCard').style.display = 'block';
         } else {
             document.getElementById('viewProfileBioCard').style.display = 'none';
+        }
+        
+        // Display working on
+        if (profile.workingOn) {
+            document.getElementById('viewProfileWorkingOn').textContent = profile.workingOn;
+            document.getElementById('viewProfileWorkingOnCard').style.display = 'block';
+        } else {
+            document.getElementById('viewProfileWorkingOnCard').style.display = 'none';
+        }
+        
+        // Display influences
+        if (profile.influences) {
+            document.getElementById('viewProfileInfluences').textContent = profile.influences;
+            document.getElementById('viewProfileInfluencesCard').style.display = 'block';
+        } else {
+            document.getElementById('viewProfileInfluencesCard').style.display = 'none';
+        }
+        
+        // Display gear
+        if (profile.gear) {
+            document.getElementById('viewProfileGear').textContent = profile.gear;
+            document.getElementById('viewProfileGearCard').style.display = 'block';
+        } else {
+            document.getElementById('viewProfileGearCard').style.display = 'none';
         }
         
         // Update buttons based on whether viewing own profile
@@ -1296,8 +1358,8 @@ async function viewMusicianProfile(userId) {
         } else {
             contactBtn.innerHTML = '✉️ Contact';
             contactBtn.onclick = function() { contactMusician(); };
-            backBtn.innerHTML = '← Back to Search';
-            backBtn.onclick = function() { showMusicianDiscovery(); };
+            backBtn.innerHTML = '← Back';
+            backBtn.onclick = function() { showHomeScreen(); };
         }
         
         // Store email for contact
@@ -2989,3 +3051,67 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 100);
     }
 });
+
+// ============================================
+// TAG INPUT HANDLING
+// ============================================
+
+window.genreTags = [];
+
+function handleTagInput(event, type) {
+    const input = event.target;
+    const value = input.value.trim();
+    
+    // Add tag on Enter or comma
+    if ((event.key === 'Enter' || event.key === ',') && value) {
+        event.preventDefault();
+        
+        // Remove comma if typed
+        const tagValue = value.replace(/,/g, '').trim();
+        
+        if (tagValue && type === 'genre') {
+            if (!window.genreTags.includes(tagValue)) {
+                window.genreTags.push(tagValue);
+                renderTags('genre');
+            }
+        }
+        
+        input.value = '';
+    }
+    
+    // Remove last tag on backspace if input is empty
+    if (event.key === 'Backspace' && !value) {
+        if (type === 'genre' && window.genreTags.length > 0) {
+            window.genreTags.pop();
+            renderTags('genre');
+        }
+    }
+}
+window.handleTagInput = handleTagInput;
+
+function renderTags(type) {
+    let tags, container;
+    
+    if (type === 'genre') {
+        tags = window.genreTags || [];
+        container = document.getElementById('genreTagsContainer');
+    }
+    
+    if (!container) return;
+    
+    container.innerHTML = tags.map((tag, index) => `
+        <span class="tag">
+            ${escapeHtml(tag)}
+            <span class="tag-remove" onclick="removeTag('${type}', ${index})">×</span>
+        </span>
+    `).join('');
+}
+window.renderTags = renderTags;
+
+function removeTag(type, index) {
+    if (type === 'genre') {
+        window.genreTags.splice(index, 1);
+        renderTags('genre');
+    }
+}
+window.removeTag = removeTag;

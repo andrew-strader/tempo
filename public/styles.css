@@ -4061,3 +4061,77 @@ body.hide-tab-bar .bottom-tab-bar {
 body.hide-tab-bar .container.has-tab-bar {
     padding-bottom: 20px;
 }
+
+/* Tags Input */
+.tags-input-wrapper {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 8px;
+    min-height: 44px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.tags-input-wrapper:focus-within {
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.tag {
+    background: rgba(102, 126, 234, 0.2);
+    color: #a5b4fc;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tag-remove {
+    cursor: pointer;
+    opacity: 0.7;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.tag-remove:hover {
+    opacity: 1;
+}
+
+.tags-input-wrapper input {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 14px;
+    padding: 6px;
+    flex: 1;
+    min-width: 120px;
+    outline: none;
+}
+
+.tags-input-wrapper input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* Profile View Genres */
+.profile-view-genres {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-top: 12px;
+}
+
+.profile-view-text {
+    color: #ccc;
+    line-height: 1.6;
+}

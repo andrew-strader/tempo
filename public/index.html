@@ -518,6 +518,26 @@
                 </div>
             </div>
             
+            <div class="card">
+                <h2>More About You</h2>
+                
+                <label>Genres</label>
+                <p class="helper-text" style="margin-bottom: 8px;">Press Enter or comma to add tags</p>
+                <div class="tags-input-wrapper" id="genreTagsWrapper">
+                    <div class="tags-container" id="genreTagsContainer"></div>
+                    <input type="text" id="genreTagsInput" placeholder="e.g. indie rock, jazz, funk..." onkeydown="handleTagInput(event, 'genre')">
+                </div>
+                
+                <label style="margin-top: 20px;">Influences</label>
+                <input type="text" id="editProfileInfluences" placeholder="e.g. Radiohead, D'Angelo, Khruangbin">
+                
+                <label>Currently working on</label>
+                <input type="text" id="editProfileWorkingOn" placeholder="e.g. Recording an EP, learning jazz standards">
+                
+                <label>Gear</label>
+                <textarea id="editProfileGear" placeholder="e.g. Fender Strat, Orange amp, SM58..." rows="3"></textarea>
+            </div>
+            
             <button class="btn btn-primary" onclick="updateProfile()" style="margin-top: 24px;">Save Changes</button>
             <button class="btn btn-secondary" onclick="showHomeScreen()">← Cancel</button>
         </div>
@@ -565,11 +585,27 @@
                 <div class="profile-view-name" id="viewProfileName">Loading...</div>
                 <div class="profile-view-location" id="viewProfileLocation"></div>
                 <div class="profile-view-instruments" id="viewProfileInstruments"></div>
+                <div class="profile-view-genres" id="viewProfileGenres"></div>
             </div>
             
             <div class="card" id="viewProfileBioCard" style="display:none;">
                 <h2>About</h2>
                 <div class="profile-view-bio" id="viewProfileBio"></div>
+            </div>
+            
+            <div class="card" id="viewProfileWorkingOnCard" style="display:none;">
+                <h2>Currently working on</h2>
+                <div class="profile-view-text" id="viewProfileWorkingOn"></div>
+            </div>
+            
+            <div class="card" id="viewProfileInfluencesCard" style="display:none;">
+                <h2>Influences</h2>
+                <div class="profile-view-text" id="viewProfileInfluences"></div>
+            </div>
+            
+            <div class="card" id="viewProfileGearCard" style="display:none;">
+                <h2>Gear</h2>
+                <div class="profile-view-text" id="viewProfileGear" style="white-space: pre-wrap;"></div>
             </div>
             
             <button class="contact-btn" id="contactMusicianBtn" onclick="contactMusician()">
