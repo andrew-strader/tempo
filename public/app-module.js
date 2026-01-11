@@ -2764,11 +2764,21 @@ function showDiscoveryHome() {
 }
 window.showDiscoveryHome = showDiscoveryHome;
 
+// Current filter state
+window.currentDiscoveryFilter = 'all';
+
 // Load the discovery feed
-async function loadDiscoveryFeed() {
+async function loadDiscoveryFeed(filter) {
+    filter = filter || window.currentDiscoveryFilter || 'all';
+    
     const feedContent = document.getElementById('feedContent');
     const feedLoading = document.getElementById('feedLoading');
     const feedEmpty = document.getElementById('feedEmpty');
+    
+    if (!feedContent || !feedLoading || !feedEmpty) {
+        console.error("Discovery feed elements not found");
+        return;
+    }
     
     feedLoading.style.display = 'flex';
     feedEmpty.style.display = 'none';
@@ -2781,7 +2791,10 @@ async function loadDiscoveryFeed() {
             where("discoverable", "==", true)
         );
         
+        console.log("Querying discoverable users...");
         const snapshot = await getDocs(usersQuery);
+        console.log("Found", snapshot.size, "discoverable users");
+        
         feedLoading.style.display = 'none';
         
         if (snapshot.empty) {
@@ -2789,15 +2802,55 @@ async function loadDiscoveryFeed() {
             return;
         }
         
-        const musicians = [];
+        let musicians = [];
         snapshot.forEach(doc => {
             // Don't show current user in feed
             if (window.currentUser && doc.id === window.currentUser.uid) return;
             musicians.push({ id: doc.id, ...doc.data() });
         });
         
+        // Apply instrument filter
+        if (filter !== 'all' && filter !== 'available') {
+            const filterMap = {
+                'guitar': ['Guitar', 'Electric Guitar', 'Acoustic Guitar'],
+                'bass': ['Bass', 'Electric Bass', 'Upright Bass'],
+                'drums': ['Drums', 'Percussion'],
+                'keys': ['Keys', 'Keyboard', 'Piano', 'Synth'],
+                'vocals': ['Vocals', 'Singer', 'Lead Vocals', 'Backup Vocals']
+            };
+            
+            const matchingInstruments = filterMap[filter] || [filter];
+            musicians = musicians.filter(m => {
+                const userInstruments = m.instruments || [];
+                return userInstruments.some(inst => 
+                    matchingInstruments.some(match => 
+                        inst.toLowerCase().includes(match.toLowerCase())
+                    )
+                );
+            });
+        }
+        
+        // Apply availability filter
+        if (filter === 'available') {
+            musicians = musicians.filter(m => m.available === true);
+        }
+        
+        console.log("After filtering:", musicians.length, "musicians");
+        
         if (musicians.length === 0) {
             feedEmpty.style.display = 'block';
+            // Customize empty message based on filter
+            const emptyIcon = feedEmpty.querySelector('.feed-empty-icon');
+            const emptyH3 = feedEmpty.querySelector('h3');
+            const emptyP = feedEmpty.querySelector('p');
+            
+            if (filter !== 'all') {
+                if (emptyH3) emptyH3.textContent = 'No matches';
+                if (emptyP) emptyP.textContent = `No musicians found for "${filter}". Try a different filter.`;
+            } else {
+                if (emptyH3) emptyH3.textContent = 'No musicians yet';
+                if (emptyP) emptyP.textContent = 'Be the first to complete your profile and appear here!';
+            }
             return;
         }
         
@@ -2810,7 +2863,7 @@ async function loadDiscoveryFeed() {
     } catch (error) {
         console.error("Error loading discovery feed:", error);
         feedLoading.style.display = 'none';
-        feedContent.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">Error loading feed. Please try again.</p>';
+        feedContent.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">Error loading feed: ' + error.message + '</p>';
     }
 }
 window.loadDiscoveryFeed = loadDiscoveryFeed;
@@ -2869,14 +2922,15 @@ function createMusicianCard(musician) {
 
 // Filter discovery feed
 function setDiscoveryFilter(filter) {
+    window.currentDiscoveryFilter = filter;
+    
     // Update active pill
     document.querySelectorAll('.filter-pill').forEach(pill => {
         pill.classList.toggle('active', pill.dataset.filter === filter);
     });
     
-    // For now, just reload - we can add actual filtering later
-    // TODO: Implement filtering by instrument, availability, etc.
-    loadDiscoveryFeed();
+    // Reload with filter
+    loadDiscoveryFeed(filter);
 }
 window.setDiscoveryFilter = setDiscoveryFilter;
 
