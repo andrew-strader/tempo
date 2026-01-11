@@ -816,7 +816,15 @@ async function showEditProfile() {
         // Load new fields
         document.getElementById('editProfileInfluences').value = profile.influences || '';
         document.getElementById('editProfileWorkingOn').value = profile.workingOn || '';
-        document.getElementById('editProfileGear').value = profile.gear || '';
+        
+        // Load social links
+        const links = profile.socialLinks || {};
+        document.getElementById('editProfileInstagram').value = links.instagram || '';
+        document.getElementById('editProfileSpotify').value = links.spotify || '';
+        document.getElementById('editProfileYouTube').value = links.youtube || '';
+        document.getElementById('editProfileBandcamp').value = links.bandcamp || '';
+        document.getElementById('editProfileSoundCloud').value = links.soundcloud || '';
+        document.getElementById('editProfileLinktree').value = links.linktree || '';
         
         // Load genre tags
         window.genreTags = profile.genres || [];
@@ -833,7 +841,12 @@ async function showEditProfile() {
         // Clear new fields
         document.getElementById('editProfileInfluences').value = '';
         document.getElementById('editProfileWorkingOn').value = '';
-        document.getElementById('editProfileGear').value = '';
+        document.getElementById('editProfileInstagram').value = '';
+        document.getElementById('editProfileSpotify').value = '';
+        document.getElementById('editProfileYouTube').value = '';
+        document.getElementById('editProfileBandcamp').value = '';
+        document.getElementById('editProfileSoundCloud').value = '';
+        document.getElementById('editProfileLinktree').value = '';
         window.genreTags = [];
         renderTags('genre');
     }
@@ -938,7 +951,16 @@ async function updateProfile() {
     const genres = window.genreTags || [];
     const influences = document.getElementById('editProfileInfluences')?.value.trim() || '';
     const workingOn = document.getElementById('editProfileWorkingOn')?.value.trim() || '';
-    const gear = document.getElementById('editProfileGear')?.value.trim() || '';
+    
+    // Social links
+    const socialLinks = {
+        instagram: document.getElementById('editProfileInstagram')?.value.trim() || '',
+        spotify: document.getElementById('editProfileSpotify')?.value.trim() || '',
+        youtube: document.getElementById('editProfileYouTube')?.value.trim() || '',
+        bandcamp: document.getElementById('editProfileBandcamp')?.value.trim() || '',
+        soundcloud: document.getElementById('editProfileSoundCloud')?.value.trim() || '',
+        linktree: document.getElementById('editProfileLinktree')?.value.trim() || ''
+    };
     
     if (!name) {
         alert('Please enter your name');
@@ -977,7 +999,7 @@ async function updateProfile() {
             genres,
             influences,
             workingOn,
-            gear,
+            socialLinks,
             updatedAt: serverTimestamp()
         };
         
@@ -1338,12 +1360,16 @@ async function viewMusicianProfile(userId) {
             document.getElementById('viewProfileInfluencesCard').style.display = 'none';
         }
         
-        // Display gear
-        if (profile.gear) {
-            document.getElementById('viewProfileGear').textContent = profile.gear;
-            document.getElementById('viewProfileGearCard').style.display = 'block';
+        // Display social links
+        const socialLinksDiv = document.getElementById('viewProfileSocialLinks');
+        const links = profile.socialLinks || {};
+        const hasLinks = Object.values(links).some(v => v);
+        
+        if (hasLinks) {
+            socialLinksDiv.innerHTML = renderSocialLinks(links);
+            socialLinksDiv.style.display = 'flex';
         } else {
-            document.getElementById('viewProfileGearCard').style.display = 'none';
+            socialLinksDiv.style.display = 'none';
         }
         
         // Update buttons based on whether viewing own profile
@@ -3115,3 +3141,44 @@ function removeTag(type, index) {
     }
 }
 window.removeTag = removeTag;
+
+// Render social links as icon buttons
+function renderSocialLinks(links) {
+    const socialIcons = {
+        instagram: {
+            url: (val) => val.startsWith('http') ? val : `https://instagram.com/${val.replace('@', '')}`,
+            svg: `<svg viewBox="0 0 24 24" fill="#E4405F"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>`
+        },
+        spotify: {
+            url: (val) => val.startsWith('http') ? val : `https://open.spotify.com/artist/${val}`,
+            svg: `<svg viewBox="0 0 24 24" fill="#1DB954"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg>`
+        },
+        youtube: {
+            url: (val) => val.startsWith('http') ? val : `https://youtube.com/${val}`,
+            svg: `<svg viewBox="0 0 24 24" fill="#FF0000"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`
+        },
+        bandcamp: {
+            url: (val) => val.startsWith('http') ? val : `https://${val}.bandcamp.com`,
+            svg: `<svg viewBox="0 0 24 24" fill="#1DA0C3"><path d="M0 18.75l7.437-7.437-7.437-7.438h16.313l7.5 7.438-7.5 7.437z"/></svg>`
+        },
+        soundcloud: {
+            url: (val) => val.startsWith('http') ? val : `https://soundcloud.com/${val}`,
+            svg: `<svg viewBox="0 0 24 24" fill="#FF5500"><path d="M1.175 12.225c-.051 0-.094.046-.101.1l-.233 2.154c-.007.058.038.114.101.114h.467c.063 0 .108-.057.101-.114l-.233-2.154c-.007-.054-.051-.1-.101-.1h-.001zm1.316.366c-.052 0-.095.046-.101.1l-.183 1.788c-.007.058.038.114.101.114h.468c.063 0 .108-.057.101-.114l-.184-1.788c-.006-.054-.05-.1-.1-.1h-.102zm1.275-.734c-.052 0-.095.046-.101.1l-.259 2.522.259 2.477c.007.054.05.1.101.1h.468c.051 0 .094-.046.101-.1l.293-2.477-.293-2.522c-.007-.054-.05-.1-.101-.1h-.468zm1.317.471c-.051 0-.095.046-.101.1l-.222 2.051.222 2.019c.006.054.05.1.101.1h.468c.051 0 .094-.046.101-.1l.252-2.019-.252-2.051c-.007-.054-.05-.1-.101-.1h-.468zm1.317-.682c-.052 0-.095.046-.101.1l-.263 2.733.263 2.612c.006.054.05.1.101.1h.467c.052 0 .095-.046.101-.1l.299-2.612-.299-2.733c-.006-.054-.05-.1-.101-.1h-.467zm1.316-.417c-.051 0-.095.046-.101.1l-.279 3.15.279 2.924c.006.054.05.1.101.1h.468c.051 0 .094-.046.101-.1l.316-2.924-.316-3.15c-.007-.054-.05-.1-.101-.1h-.468zm1.317-.209c-.052 0-.095.046-.101.1l-.295 3.359.295 3.066c.006.054.05.1.101.1h.467c.052 0 .095-.046.101-.1l.334-3.066-.334-3.359c-.006-.054-.05-.1-.101-.1h-.467zm1.316.209c-.051 0-.094.046-.101.1l-.311 3.15.311 3.133c.007.054.05.1.101.1h.468c.051 0 .094-.046.101-.1l.352-3.133-.352-3.15c-.007-.054-.05-.1-.101-.1h-.468zm1.317-.627c-.052 0-.095.046-.101.1l-.328 3.777.328 3.32c.006.054.05.1.101.1h.467c.052 0 .095-.046.101-.1l.37-3.32-.37-3.777c-.006-.054-.05-.1-.101-.1h-.467zm1.316.418c-.051 0-.094.046-.101.1l-.343 3.359.343 3.32c.007.054.05.1.101.1h.468c.051 0 .094-.046.101-.1l.389-3.32-.389-3.359c-.007-.054-.05-.1-.101-.1h-.468zm1.317-1.253c-.052 0-.095.046-.101.1l-.36 4.612.36 3.32c.006.054.05.1.101.1h.467c.052 0 .095-.046.101-.1l.407-3.32-.407-4.612c-.006-.054-.05-.1-.101-.1h-.467zm1.501.627c-.063 0-.115.051-.121.113l-.37 3.985.37 3.32c.006.062.058.113.121.113h.468c.063 0 .115-.051.121-.113l.407-3.32-.407-3.985c-.006-.062-.058-.113-.121-.113h-.468zm1.42-.835c-.074 0-.132.058-.139.132l-.384 4.82.384 3.297c.007.074.065.132.139.132h.468c.074 0 .132-.058.139-.132l.422-3.297-.422-4.82c-.007-.074-.065-.132-.139-.132h-.468zm1.501.208c-.074 0-.132.058-.139.132l-.399 4.612.399 3.297c.007.074.065.132.139.132h.468c.074 0 .132-.058.139-.132l.437-3.297-.437-4.612c-.007-.074-.065-.132-.139-.132h-.468zm1.873-.939c-.187 0-.35.142-.37.328l-.399 5.551.399 3.274c.02.187.183.328.37.328h.093c.187 0 .35-.142.37-.328l.437-3.274-.437-5.551c-.02-.187-.183-.328-.37-.328h-.093zm2.186-.939c-.187 0-.35.142-.37.328l-.437 6.49.437 3.227c.02.187.183.328.37.328h.279c.187 0 .35-.142.37-.328l.468-3.227-.468-6.49c-.02-.187-.183-.328-.37-.328h-.279zm2.001-.418c-.187 0-.35.142-.37.328l-.453 6.908.453 3.18c.02.187.183.328.37.328h.465c.187 0 .35-.142.37-.328l.491-3.18-.491-6.908c-.02-.187-.183-.328-.37-.328h-.465z"/></svg>`
+        },
+        linktree: {
+            url: (val) => val.startsWith('http') ? val : `https://linktr.ee/${val}`,
+            svg: `<svg viewBox="0 0 24 24" fill="#43E55E"><path d="M8.92 11.8l2.17-2.14L8.9 7.5H5.33l4.64-4.65L8.92 1.8 4.28 6.44l1.05 1.06-4.64 4.65h3.57l2.19-2.16 2.17 2.14.3-.33zm6.16 0l2.17-2.14 2.19 2.16h3.57l-4.64-4.65 1.05-1.06L14.78 1.8l-1.05 1.05 4.64 4.65h-3.57l-2.19 2.16-2.17-2.14-.3.33 2.17 2.14-2.17 2.14.3.33 2.17-2.14 2.19 2.16h3.57l-4.64 4.65 1.05 1.06 4.64-4.65-1.05-1.06 4.64-4.65h-3.57l-2.19 2.16zm-3.93 7.55v4.65h1.7v-4.65l-1.7-1.68v-.02l-.85.84.85.86z"/></svg>`
+        }
+    };
+    
+    let html = '';
+    for (const [key, value] of Object.entries(links)) {
+        if (value && socialIcons[key]) {
+            const icon = socialIcons[key];
+            const url = icon.url(value);
+            html += `<a href="${url}" target="_blank" rel="noopener" class="social-link-btn" title="${key}">${icon.svg}</a>`;
+        }
+    }
+    return html;
+}
+window.renderSocialLinks = renderSocialLinks;
