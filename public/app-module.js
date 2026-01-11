@@ -222,6 +222,9 @@ onAuthStateChanged(auth, async (user) => {
     } else if (user && window.pendingShowProfile) {
         window.pendingShowProfile = false;
         showEditProfile();
+    } else if (user && window.pendingShowGigs) {
+        window.pendingShowGigs = false;
+        showMyGigs();
     } else if (user && window.pendingBandDetail) {
         const bandId = window.pendingBandDetail;
         window.pendingBandDetail = false;
@@ -287,8 +290,11 @@ window.addEventListener('popstate', function(event) {
     if (path === '/' || path === '') {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById('screen0').classList.add('active');
+        loadDiscoveryFeed();
     } else if (path === '/bands') {
         if (window.currentUser) showMyBands();
+    } else if (path === '/gigs') {
+        if (window.currentUser) showMyGigs();
     } else if (path === '/profile') {
         if (window.currentUser) showEditProfile();
     } else if (path === '/privacy') {
@@ -2522,6 +2528,9 @@ const isBandsPage = window.location.pathname === '/bands';
 // Check for /profile path
 const isProfilePage = window.location.pathname === '/profile';
 
+// Check for /gigs path
+const isGigsPage = window.location.pathname === '/gigs';
+
 // Route to appropriate view
 if (isPrivacyPage) {
     document.getElementById('screen0').classList.remove('active');
@@ -2535,6 +2544,9 @@ if (isPrivacyPage) {
 } else if (isProfilePage) {
     // Will be handled after auth
     window.pendingShowProfile = true;
+} else if (isGigsPage) {
+    // Will be handled after auth
+    window.pendingShowGigs = true;
 } else if (bandDetailId) {
     // Will be handled after auth
     window.pendingBandDetail = bandDetailId;
@@ -3068,9 +3080,11 @@ window.showTabBar = showTabBar;
 
 // Initialize discovery feed on page load if on home screen
 document.addEventListener('DOMContentLoaded', function() {
-    // If screen0 is active and we're at root path, load the feed
+    // Only load discovery feed if we're at root path and screen0 is active
+    const path = window.location.pathname;
     const screen0 = document.getElementById('screen0');
-    if (screen0 && screen0.classList.contains('active')) {
+    
+    if (screen0 && screen0.classList.contains('active') && (path === '/' || path === '')) {
         console.log("Initializing discovery feed on page load...");
         setTimeout(() => {
             loadDiscoveryFeed();
