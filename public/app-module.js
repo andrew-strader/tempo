@@ -219,9 +219,13 @@ onAuthStateChanged(auth, async (user) => {
     } else if (user && window.pendingShowBands) {
         window.pendingShowBands = false;
         showMyBands();
-    } else if (user && window.pendingShowProfile) {
-        window.pendingShowProfile = false;
-        showEditProfile();
+    } else if (user && window.pendingViewProfile) {
+        window.pendingViewProfile = false;
+        viewMusicianProfile(user.uid);
+    } else if (user && window.pendingViewMusician) {
+        const musicianId = window.pendingViewMusician;
+        window.pendingViewMusician = null;
+        viewMusicianProfile(musicianId);
     } else if (user && window.pendingShowGigs) {
         window.pendingShowGigs = false;
         showMyGigs();
@@ -296,7 +300,12 @@ window.addEventListener('popstate', function(event) {
     } else if (path === '/gigs') {
         if (window.currentUser) showMyGigs();
     } else if (path === '/profile') {
+        if (window.currentUser) viewMusicianProfile(window.currentUser.uid);
+    } else if (path === '/edit-profile') {
         if (window.currentUser) showEditProfile();
+    } else if (path.match(/^\/musician\/([a-zA-Z0-9]+)$/)) {
+        const musicianId = path.split('/')[2];
+        viewMusicianProfile(musicianId);
     } else if (path === '/privacy') {
         showPrivacy();
     } else if (path === '/terms') {
@@ -745,7 +754,7 @@ async function showEditProfile() {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('screenEditProfile').classList.add('active');
     hideGlobalHeader();
-    window.history.pushState({}, '', '/profile');
+    window.history.pushState({}, '', '/edit-profile');
     
     // Reset photo state
     const avatar = document.getElementById('editProfileAvatar');
@@ -1295,6 +1304,14 @@ function escapeHtml(text) {
 async function viewMusicianProfile(userId) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('screenMusicianProfile').classList.add('active');
+    
+    // Set URL - use /profile for own profile, /musician/id for others
+    const isOwnProfile = window.currentUser && window.currentUser.uid === userId;
+    if (isOwnProfile) {
+        window.history.pushState({}, '', '/profile');
+    } else {
+        window.history.pushState({}, '', '/musician/' + userId);
+    }
     
     // Store for contact
     window.viewingMusicianId = userId;
@@ -2525,8 +2542,15 @@ const isTermsPage = window.location.pathname === '/terms';
 // Check for /bands path
 const isBandsPage = window.location.pathname === '/bands';
 
-// Check for /profile path
+// Check for /profile path (view own profile)
 const isProfilePage = window.location.pathname === '/profile';
+
+// Check for /edit-profile path
+const isEditProfilePage = window.location.pathname === '/edit-profile';
+
+// Check for /musician/{id} path
+const musicianMatch = window.location.pathname.match(/^\/musician\/([a-zA-Z0-9]+)$/);
+const musicianId = musicianMatch ? musicianMatch[1] : null;
 
 // Check for /gigs path
 const isGigsPage = window.location.pathname === '/gigs';
@@ -2542,8 +2566,14 @@ if (isPrivacyPage) {
     // Will be handled after auth
     window.pendingShowBands = true;
 } else if (isProfilePage) {
-    // Will be handled after auth
-    window.pendingShowProfile = true;
+    // Will be handled after auth - view own profile
+    window.pendingViewProfile = true;
+} else if (isEditProfilePage) {
+    // Will be handled after auth - edit profile
+    window.pendingEditProfile = true;
+} else if (musicianId) {
+    // Will be handled after auth - view other musician
+    window.pendingViewMusician = musicianId;
 } else if (isGigsPage) {
     // Will be handled after auth
     window.pendingShowGigs = true;
