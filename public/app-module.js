@@ -2977,3 +2977,15 @@ function showTabBar() {
     document.getElementById('bottomTabBar').style.display = 'flex';
 }
 window.showTabBar = showTabBar;
+
+// Initialize discovery feed on page load if on home screen
+document.addEventListener('DOMContentLoaded', function() {
+    // If screen0 is active and we're at root path, load the feed
+    const screen0 = document.getElementById('screen0');
+    if (screen0 && screen0.classList.contains('active')) {
+        console.log("Initializing discovery feed on page load...");
+        setTimeout(() => {
+            loadDiscoveryFeed();
+        }, 100);
+    }
+});
