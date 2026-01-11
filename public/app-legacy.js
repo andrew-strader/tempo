@@ -1213,6 +1213,9 @@ async function showMyGigs() {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('screenMyGigs').classList.add('active');
     
+    // Update URL
+    window.history.pushState({}, '', '/gigs');
+    
     // Update tab bar
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById('tabGigs').classList.add('active');
