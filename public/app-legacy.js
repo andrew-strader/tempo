@@ -2795,4 +2795,4 @@ async function submitAvailability() {
         btn.disabled = false;
         btn.innerHTML = 'Submit Availability';
     }
-});
+}
