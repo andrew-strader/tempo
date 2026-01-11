@@ -409,6 +409,7 @@ function updateMenuAuth() {
     const menuSignOut = document.getElementById('menuSignOut');
     const menuEditProfile = document.getElementById('menuEditProfile');
     const menuViewProfile = document.getElementById('menuViewProfile');
+    const menuProfileDivider = document.getElementById('menuProfileDivider');
     
     if (user) {
         // Use profile photo if available, otherwise Google photo
@@ -429,6 +430,7 @@ function updateMenuAuth() {
         // Show profile options for logged in users
         if (menuEditProfile) menuEditProfile.style.display = 'flex';
         if (menuViewProfile) menuViewProfile.style.display = 'flex';
+        if (menuProfileDivider) menuProfileDivider.style.display = 'block';
     } else {
         menuUserInfo.style.display = 'none';
         menuSignIn.style.display = 'flex';
@@ -436,6 +438,7 @@ function updateMenuAuth() {
         // Hide profile options for logged out users
         if (menuEditProfile) menuEditProfile.style.display = 'none';
         if (menuViewProfile) menuViewProfile.style.display = 'none';
+        if (menuProfileDivider) menuProfileDivider.style.display = 'none';
     }
 }
 
@@ -1330,6 +1333,11 @@ async function showMyBands() {
     document.getElementById('screenMyBands').classList.add('active');
     window.history.pushState({}, '', '/bands');
     
+    // Update tab bar
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('tabBands').classList.add('active');
+    showTabBar();
+    
     await loadMyBands();
 }
 window.showMyBands = showMyBands;
@@ -1427,6 +1435,9 @@ async function loadMyBands() {
 function showCreateBand() {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('screenCreateBand').classList.add('active');
+    
+    // Hide tab bar during creation flow
+    hideTabBar();
     
     // Reset form
     document.getElementById('newBandName').value = '';
@@ -2648,3 +2659,278 @@ window.calendarDate = new Date();
 window.selectedTimes = [];
 window.customTimes = [];
 window.currentSelectedDay = null;
+
+// ============================================
+// DISCOVERY FEED & NEW HOME FUNCTIONALITY
+// ============================================
+
+// Evergreen Update Config - just edit this for new updates
+const UPDATE_CONFIG = {
+    version: "2026-01-11",
+    title: "Quick heads up",
+    items: [
+        { emoji: "🏠", title: "New home feed", desc: "discover musicians and see what's happening" },
+        { emoji: "📱", title: "Bottom tabs", desc: "faster access to your gigs and bands" },
+        { emoji: "👤", title: "Richer profiles", desc: "add your gear, influences, and more" }
+    ],
+    footer: "All your stuff is still here, just reorganized a bit."
+};
+
+// Check if user has seen the latest update
+async function checkWhatsNew() {
+    if (!window.currentUser || !window.currentUserProfile) return;
+    
+    const lastSeen = window.currentUserProfile.lastSeenUpdateVersion || "";
+    
+    // Show modal if they haven't seen this version
+    if (lastSeen < UPDATE_CONFIG.version) {
+        // Build modal content dynamically
+        const modal = document.getElementById('whatsNewOverlay');
+        const titleEl = modal.querySelector('.whats-new-title');
+        const contentEl = modal.querySelector('.whats-new-content');
+        
+        titleEl.textContent = UPDATE_CONFIG.title;
+        contentEl.innerHTML = `
+            <p>We made some changes:</p>
+            <ul>
+                ${UPDATE_CONFIG.items.map(item => 
+                    `<li>${item.emoji} <strong>${item.title}</strong> — ${item.desc}</li>`
+                ).join('')}
+            </ul>
+            <p style="color: #888; font-size: 14px; margin-top: 16px;">${UPDATE_CONFIG.footer}</p>
+        `;
+        
+        modal.classList.add('visible');
+    }
+}
+window.checkWhatsNew = checkWhatsNew;
+
+// Dismiss the "What's New" modal
+async function dismissWhatsNew() {
+    document.getElementById('whatsNewOverlay').classList.remove('visible');
+    
+    // Save that they've seen this version
+    if (window.currentUser) {
+        try {
+            await setDoc(doc(db, "users", window.currentUser.uid), {
+                lastSeenUpdateVersion: UPDATE_CONFIG.version
+            }, { merge: true });
+            window.currentUserProfile.lastSeenUpdateVersion = UPDATE_CONFIG.version;
+        } catch (error) {
+            console.error("Error saving update version:", error);
+        }
+    }
+}
+window.dismissWhatsNew = dismissWhatsNew;
+
+// Tab navigation
+function switchTab(tab) {
+    // Update active tab button
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+    
+    // Handle tab action
+    switch(tab) {
+        case 'home':
+            showDiscoveryHome();
+            break;
+        case 'gigs':
+            showMyGigs();
+            break;
+        case 'bands':
+            showMyBands();
+            break;
+        case 'create':
+            openCreateSheet();
+            break;
+    }
+}
+window.switchTab = switchTab;
+
+// Show discovery home screen
+function showDiscoveryHome() {
+    hideAllScreens();
+    document.getElementById('screen0').classList.add('active');
+    showGlobalHeader();
+    document.body.classList.remove('hide-tab-bar');
+    document.getElementById('bottomTabBar').style.display = 'flex';
+    loadDiscoveryFeed();
+}
+window.showDiscoveryHome = showDiscoveryHome;
+
+// Load the discovery feed
+async function loadDiscoveryFeed() {
+    const feedContent = document.getElementById('feedContent');
+    const feedLoading = document.getElementById('feedLoading');
+    const feedEmpty = document.getElementById('feedEmpty');
+    
+    feedLoading.style.display = 'flex';
+    feedEmpty.style.display = 'none';
+    feedContent.innerHTML = '';
+    
+    try {
+        // Query discoverable users
+        const usersQuery = query(
+            collection(db, "users"),
+            where("discoverable", "==", true)
+        );
+        
+        const snapshot = await getDocs(usersQuery);
+        feedLoading.style.display = 'none';
+        
+        if (snapshot.empty) {
+            feedEmpty.style.display = 'block';
+            return;
+        }
+        
+        const musicians = [];
+        snapshot.forEach(doc => {
+            // Don't show current user in feed
+            if (window.currentUser && doc.id === window.currentUser.uid) return;
+            musicians.push({ id: doc.id, ...doc.data() });
+        });
+        
+        if (musicians.length === 0) {
+            feedEmpty.style.display = 'block';
+            return;
+        }
+        
+        // Render musician cards
+        musicians.forEach(musician => {
+            const card = createMusicianCard(musician);
+            feedContent.appendChild(card);
+        });
+        
+    } catch (error) {
+        console.error("Error loading discovery feed:", error);
+        feedLoading.style.display = 'none';
+        feedContent.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">Error loading feed. Please try again.</p>';
+    }
+}
+window.loadDiscoveryFeed = loadDiscoveryFeed;
+
+// Create a musician card for the feed
+function createMusicianCard(musician) {
+    const card = document.createElement('div');
+    card.className = 'musician-card';
+    card.onclick = () => viewMusicianProfile(musician.id);
+    
+    // Get instruments display
+    const instruments = musician.instruments || [];
+    const instrumentsText = instruments.length > 0 ? instruments.join(' · ') : 'Musician';
+    
+    // Get location
+    const location = musician.location || '';
+    
+    // Get bio snippet (truncate if too long)
+    let bio = musician.bio || '';
+    if (bio.length > 200) {
+        bio = bio.substring(0, 200) + '...';
+    }
+    
+    // Get genres (if we add this field later)
+    const genres = musician.genres || [];
+    
+    // Avatar
+    let avatarContent = '';
+    if (musician.photoURL) {
+        avatarContent = `<img src="${musician.photoURL}" alt="${escapeHtml(musician.name)}">`;
+    } else {
+        avatarContent = '🎵';
+    }
+    
+    card.innerHTML = `
+        <div class="musician-card-header">
+            <div class="musician-card-avatar">${avatarContent}</div>
+            <div class="musician-card-info">
+                <div class="musician-card-name-row">
+                    <span class="musician-card-name">${escapeHtml(musician.name || 'Anonymous')}</span>
+                    ${musician.available ? '<span class="musician-card-available">Available</span>' : ''}
+                </div>
+                <div class="musician-card-meta">${escapeHtml(instrumentsText)}${location ? ' · ' + escapeHtml(location) : ''}</div>
+            </div>
+        </div>
+        ${bio ? `<p class="musician-card-bio">${escapeHtml(bio)}</p>` : ''}
+        ${genres.length > 0 ? `
+            <div class="musician-card-genres">
+                ${genres.map(g => `<span class="genre-tag">${escapeHtml(g)}</span>`).join('')}
+            </div>
+        ` : ''}
+    `;
+    
+    return card;
+}
+
+// Filter discovery feed
+function setDiscoveryFilter(filter) {
+    // Update active pill
+    document.querySelectorAll('.filter-pill').forEach(pill => {
+        pill.classList.toggle('active', pill.dataset.filter === filter);
+    });
+    
+    // For now, just reload - we can add actual filtering later
+    // TODO: Implement filtering by instrument, availability, etc.
+    loadDiscoveryFeed();
+}
+window.setDiscoveryFilter = setDiscoveryFilter;
+
+// Create sheet functions
+function openCreateSheet() {
+    document.getElementById('createSheetOverlay').classList.add('visible');
+    document.getElementById('createSheet').classList.add('visible');
+}
+window.openCreateSheet = openCreateSheet;
+
+function closeCreateSheet() {
+    document.getElementById('createSheetOverlay').classList.remove('visible');
+    document.getElementById('createSheet').classList.remove('visible');
+    
+    // Reset the Create tab to not be active (home should be)
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('tabHome').classList.add('active');
+}
+window.closeCreateSheet = closeCreateSheet;
+
+// Override goHome to use new discovery home
+const originalGoHome = goHome;
+function goHome() {
+    toggleMenu();
+    showDiscoveryHome();
+    
+    // Update tab bar
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('tabHome').classList.add('active');
+}
+window.goHome = goHome;
+
+// Override showHomeScreen to use new discovery home
+const originalShowHomeScreen = showHomeScreen;
+function showHomeScreen() {
+    showDiscoveryHome();
+    
+    // Check if we should show "What's New" modal
+    setTimeout(() => {
+        checkWhatsNew();
+    }, 500);
+}
+window.showHomeScreen = showHomeScreen;
+
+// Update showMyGigs to update tab bar
+const originalShowMyGigs = window.showMyGigs;
+// Note: showMyGigs is in app-legacy.js, we'll handle tab update there
+
+// Update showMyBands to update tab bar
+const originalShowMyBands = window.showMyBands;
+// Note: showMyBands is in app-module.js already
+
+// Hide tab bar for certain screens
+function hideTabBar() {
+    document.body.classList.add('hide-tab-bar');
+}
+window.hideTabBar = hideTabBar;
+
+function showTabBar() {
+    document.body.classList.remove('hide-tab-bar');
+    document.getElementById('bottomTabBar').style.display = 'flex';
+}
+window.showTabBar = showTabBar;

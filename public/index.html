@@ -118,25 +118,17 @@
         
         <div id="menuUserInfo" style="display: none;"></div>
         
-        <div class="menu-item" onclick="goHome()">
-            <span class="menu-item-icon">🏠</span>
-            <span class="menu-item-text">Home</span>
+        <div id="menuViewProfile" class="menu-item" style="display: none;" onclick="goToViewMyProfile()">
+            <span class="menu-item-icon">👤</span>
+            <span class="menu-item-text">View My Profile</span>
         </div>
         
-        <div class="menu-item" onclick="goToMyGigs()">
-            <span class="menu-item-icon">📋</span>
-            <span class="menu-item-text">My Gigs</span>
+        <div id="menuEditProfile" class="menu-item" style="display: none;" onclick="goToEditProfile()">
+            <span class="menu-item-icon">✏️</span>
+            <span class="menu-item-text">Edit Profile</span>
         </div>
         
-        <div class="menu-item" onclick="goToMyBands()">
-            <span class="menu-item-icon">🎸</span>
-            <span class="menu-item-text">My Bands</span>
-        </div>
-        
-        <div class="menu-item" onclick="goToFindMusicians()">
-            <span class="menu-item-icon">🔍</span>
-            <span class="menu-item-text">Find Musicians</span>
-        </div>
+        <div class="menu-divider" id="menuProfileDivider" style="display: none;"></div>
         
         <div class="menu-item" onclick="goToHelp()">
             <span class="menu-item-icon">❓</span>
@@ -151,16 +143,6 @@
         <div class="menu-item" onclick="goToTerms()">
             <span class="menu-item-icon">📜</span>
             <span class="menu-item-text">Terms of Service</span>
-        </div>
-        
-        <div id="menuEditProfile" class="menu-item" style="display: none;" onclick="goToEditProfile()">
-            <span class="menu-item-icon">✏️</span>
-            <span class="menu-item-text">Edit Profile</span>
-        </div>
-        
-        <div id="menuViewProfile" class="menu-item" style="display: none;" onclick="goToViewMyProfile()">
-            <span class="menu-item-icon">👤</span>
-            <span class="menu-item-text">View My Profile</span>
         </div>
         
         <div class="menu-divider"></div>
@@ -178,9 +160,104 @@
         </div>
     </div>
 
-    <div class="container">
-        <!-- Screen 0: Home / Landing -->
+    <!-- "Quick heads up" Modal for existing users -->
+    <div class="whats-new-overlay" id="whatsNewOverlay">
+        <div class="whats-new-modal">
+            <div class="whats-new-title">Quick heads up</div>
+            <div class="whats-new-content">
+                <!-- Content populated dynamically from UPDATE_CONFIG -->
+            </div>
+            <button class="btn" onclick="dismissWhatsNew()">Got it</button>
+        </div>
+    </div>
+
+    <!-- Create Action Sheet -->
+    <div class="create-sheet-overlay" id="createSheetOverlay" onclick="closeCreateSheet()"></div>
+    <div class="create-sheet" id="createSheet">
+        <div class="create-sheet-header">
+            <div class="create-sheet-title">Create</div>
+            <button class="create-sheet-close" onclick="closeCreateSheet()">×</button>
+        </div>
+        <div class="create-sheet-options">
+            <div class="create-sheet-option" onclick="closeCreateSheet(); startNewGig();">
+                <span class="create-sheet-option-icon">🎤</span>
+                <div class="create-sheet-option-text">
+                    <h4>New Gig</h4>
+                    <p>Schedule a show with rehearsals</p>
+                </div>
+            </div>
+            <div class="create-sheet-option" onclick="closeCreateSheet(); showCreateBand();">
+                <span class="create-sheet-option-icon">🎸</span>
+                <div class="create-sheet-option-text">
+                    <h4>New Band</h4>
+                    <p>Create a band and invite members</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Tab Bar -->
+    <div class="bottom-tab-bar" id="bottomTabBar">
+        <button class="tab-btn active" id="tabHome" onclick="switchTab('home')">
+            <span class="tab-icon">🏠</span>
+            <span class="tab-label">Home</span>
+        </button>
+        <button class="tab-btn" id="tabGigs" onclick="switchTab('gigs')">
+            <span class="tab-icon">📅</span>
+            <span class="tab-label">Gigs</span>
+        </button>
+        <button class="tab-btn" id="tabBands" onclick="switchTab('bands')">
+            <span class="tab-icon">🎸</span>
+            <span class="tab-label">Bands</span>
+        </button>
+        <button class="tab-btn" id="tabCreate" onclick="switchTab('create')">
+            <span class="tab-icon">➕</span>
+            <span class="tab-label">Create</span>
+        </button>
+    </div>
+
+    <div class="container has-tab-bar">
+        <!-- Screen 0: Discovery Feed Home -->
         <div class="screen active" id="screen0">
+            <!-- Discovery Header -->
+            <div class="discovery-header">
+                <div class="discovery-filters">
+                    <button class="filter-pill active" data-filter="all" onclick="setDiscoveryFilter('all')">For You</button>
+                    <button class="filter-pill" data-filter="available" onclick="setDiscoveryFilter('available')">Available</button>
+                    <button class="filter-pill" data-filter="guitar" onclick="setDiscoveryFilter('guitar')">Guitar</button>
+                    <button class="filter-pill" data-filter="drums" onclick="setDiscoveryFilter('drums')">Drums</button>
+                    <button class="filter-pill" data-filter="bass" onclick="setDiscoveryFilter('bass')">Bass</button>
+                    <button class="filter-pill" data-filter="keys" onclick="setDiscoveryFilter('keys')">Keys</button>
+                    <button class="filter-pill" data-filter="vocals" onclick="setDiscoveryFilter('vocals')">Vocals</button>
+                </div>
+            </div>
+            
+            <!-- Discovery Feed -->
+            <div class="discovery-feed" id="discoveryFeed">
+                <div class="feed-loading" id="feedLoading">
+                    <div class="spinner"></div>
+                    <p>Loading musicians...</p>
+                </div>
+                <div class="feed-empty" id="feedEmpty" style="display: none;">
+                    <div class="feed-empty-icon">🎸</div>
+                    <h3>No musicians yet</h3>
+                    <p>Be the first to complete your profile and appear here!</p>
+                    <button class="btn" onclick="goToEditProfile()">Complete Your Profile</button>
+                </div>
+                <div id="feedContent"></div>
+            </div>
+            
+            <!-- Sign in prompt for non-logged-in users -->
+            <div id="signInPromptHome" class="sign-in-prompt" style="display: none;">
+                <button class="google-sign-in-btn-small" onclick="signInWithGoogleAndCheckProfile()">
+                    <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                    Sign in to discover musicians
+                </button>
+            </div>
+        </div>
+        
+        <!-- Legacy Screen 0: Old Home (hidden, kept for compatibility) -->
+        <div class="screen" id="screenOldHome">
             <div class="logo"><img src="/tempo-logo.svg" alt="Tempo" class="logo-img"></div>
             <p class="tagline">Schedule rehearsals for your show</p>
             
@@ -217,13 +294,6 @@
                         <div class="home-option-title">Find Musicians</div>
                         <div class="home-option-desc">Discover players for your band</div>
                     </div>
-                </button>
-            </div>
-            
-            <div id="signInPromptHome" class="sign-in-prompt">
-                <button class="google-sign-in-btn-small" onclick="signInWithGoogleAndCheckProfile()">
-                    <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-                    Sign in to save your gigs
                 </button>
             </div>
         </div>
