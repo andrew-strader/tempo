@@ -270,11 +270,12 @@ function updateAuthUI(user) {
 }
 
 function showHomeScreen() {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById('screen0').classList.add('active');
-    hideGlobalHeader();
-    // Clear URL params
-    window.history.replaceState({}, '', '/');
+    showDiscoveryHome();
+    
+    // Check if we should show "What's New" modal
+    setTimeout(() => {
+        if (window.checkWhatsNew) checkWhatsNew();
+    }, 500);
 }
 
 window.showHomeScreen = showHomeScreen;
@@ -313,7 +314,12 @@ function toggleMenu() {
 
 function goHome() {
     toggleMenu();
-    showHomeScreen();
+    showDiscoveryHome();
+    
+    // Update tab bar
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    const tabHome = document.getElementById('tabHome');
+    if (tabHome) tabHome.classList.add('active');
 }
 
 function goToMyGigs() {
@@ -2890,30 +2896,6 @@ function closeCreateSheet() {
     document.getElementById('tabHome').classList.add('active');
 }
 window.closeCreateSheet = closeCreateSheet;
-
-// Override goHome to use new discovery home
-const originalGoHome = goHome;
-function goHome() {
-    toggleMenu();
-    showDiscoveryHome();
-    
-    // Update tab bar
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('tabHome').classList.add('active');
-}
-window.goHome = goHome;
-
-// Override showHomeScreen to use new discovery home
-const originalShowHomeScreen = showHomeScreen;
-function showHomeScreen() {
-    showDiscoveryHome();
-    
-    // Check if we should show "What's New" modal
-    setTimeout(() => {
-        checkWhatsNew();
-    }, 500);
-}
-window.showHomeScreen = showHomeScreen;
 
 // Update showMyGigs to update tab bar
 const originalShowMyGigs = window.showMyGigs;
