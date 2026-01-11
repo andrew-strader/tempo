@@ -3640,3 +3640,426 @@ body.has-header .container {
             background: rgba(255,255,255,0.08);
             color: #fff;
         }
+
+/* ============================================
+   DISCOVERY FEED & NEW HOME STYLES
+   ============================================ */
+
+/* Bottom Tab Bar */
+.bottom-tab-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(10, 10, 10, 0.95);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 0 28px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 100;
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    color: #555;
+    font-size: 11px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 16px;
+    transition: color 0.2s;
+}
+
+.tab-btn.active {
+    color: #fff;
+}
+
+.tab-btn .tab-icon {
+    font-size: 22px;
+}
+
+.tab-btn .tab-label {
+    font-weight: 500;
+}
+
+/* Container adjustment for tab bar */
+.container.has-tab-bar {
+    padding-bottom: 100px;
+}
+
+/* Discovery Header */
+.discovery-header {
+    position: sticky;
+    top: 60px;
+    background: rgba(10, 10, 10, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 50;
+    padding: 12px 0;
+    margin: 0 -20px;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+
+.discovery-filters {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-bottom: 4px;
+}
+
+.discovery-filters::-webkit-scrollbar {
+    display: none;
+}
+
+.filter-pill {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    padding: 8px 16px;
+    color: #999;
+    font-size: 14px;
+    font-weight: 400;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.filter-pill:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+    color: #ccc;
+}
+
+.filter-pill.active {
+    background: #fff;
+    border-color: #fff;
+    color: #0a0a0a;
+    font-weight: 600;
+}
+
+/* Discovery Feed */
+.discovery-feed {
+    padding-top: 8px;
+}
+
+.feed-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: #666;
+}
+
+.feed-loading .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 16px;
+}
+
+.feed-empty {
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.feed-empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.feed-empty h3 {
+    color: #fff;
+    margin: 0 0 8px 0;
+    font-size: 18px;
+}
+
+.feed-empty p {
+    color: #666;
+    margin: 0 0 24px 0;
+}
+
+/* Musician Card in Feed */
+.musician-card {
+    padding: 24px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.musician-card:hover {
+    background: rgba(255, 255, 255, 0.02);
+    margin: 0 -20px;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+
+.musician-card-header {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.musician-card-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.musician-card-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.musician-card-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.musician-card-name-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 2px;
+}
+
+.musician-card-name {
+    font-weight: 600;
+    font-size: 16px;
+    color: #fff;
+}
+
+.musician-card-available {
+    background: rgba(52, 211, 153, 0.15);
+    color: #34d399;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+}
+
+.musician-card-meta {
+    color: #666;
+    font-size: 14px;
+}
+
+.musician-card-bio {
+    font-size: 16px;
+    line-height: 1.5;
+    color: #e0e0e0;
+    margin: 0 0 16px 0;
+}
+
+.musician-card-genres {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+
+.genre-tag {
+    background: rgba(102, 126, 234, 0.12);
+    color: #8b9fe8;
+    padding: 5px 12px;
+    border-radius: 14px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.musician-card-activity {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    color: #555;
+    font-size: 13px;
+}
+
+/* "What's New" Modal */
+.whats-new-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.whats-new-overlay.visible {
+    display: flex;
+}
+
+.whats-new-modal {
+    background: #1a1a1a;
+    border-radius: 20px;
+    padding: 32px;
+    max-width: 400px;
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.whats-new-title {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: #fff;
+}
+
+.whats-new-content {
+    margin-bottom: 24px;
+}
+
+.whats-new-content p {
+    color: #ccc;
+    font-size: 15px;
+    line-height: 1.5;
+    margin: 0 0 16px 0;
+}
+
+.whats-new-content ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.whats-new-content li {
+    color: #e0e0e0;
+    font-size: 15px;
+    line-height: 1.6;
+    margin-bottom: 12px;
+    padding-left: 0;
+}
+
+.whats-new-content li strong {
+    color: #fff;
+}
+
+.whats-new-modal .btn {
+    width: 100%;
+}
+
+/* Create Action Sheet */
+.create-sheet-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 200;
+}
+
+.create-sheet-overlay.visible {
+    display: block;
+}
+
+.create-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #1a1a1a;
+    border-radius: 20px 20px 0 0;
+    padding: 20px 20px 40px;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+    z-index: 201;
+}
+
+.create-sheet.visible {
+    transform: translateY(0);
+}
+
+.create-sheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.create-sheet-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.create-sheet-close {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.create-sheet-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.create-sheet-option {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.create-sheet-option:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.create-sheet-option-icon {
+    font-size: 28px;
+}
+
+.create-sheet-option-text h4 {
+    margin: 0 0 4px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+}
+
+.create-sheet-option-text p {
+    margin: 0;
+    font-size: 13px;
+    color: #888;
+}
+
+/* Hide tab bar on certain screens */
+body.hide-tab-bar .bottom-tab-bar {
+    display: none;
+}
+
+body.hide-tab-bar .container.has-tab-bar {
+    padding-bottom: 20px;
+}

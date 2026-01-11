@@ -640,6 +640,9 @@ async function startNewGig() {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('screen1').classList.add('active');
     
+    // Hide tab bar during creation flow
+    if (window.hideTabBar) window.hideTabBar();
+    
     // Reset selected band
     window.selectedBandForGig = null;
     
@@ -1209,6 +1212,11 @@ async function showMyGigs() {
     
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('screenMyGigs').classList.add('active');
+    
+    // Update tab bar
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('tabGigs').classList.add('active');
+    if (window.showTabBar) window.showTabBar();
     
     // Update user info on this screen too
     const userInfo = document.getElementById('userInfoMyGigs');
