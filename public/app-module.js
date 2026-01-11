@@ -199,7 +199,7 @@ onAuthStateChanged(auth, async (user) => {
                 if (setupCalStatus) {
                     setupCalStatus.innerHTML = `
                         <div style="display: flex; align-items: center; gap: 8px; color: #4CAF50;">
-                            <span>✓ Calendar Connected</span>
+                            <span>Calendar Connected</span>
                         </div>
                     `;
                 }
@@ -523,7 +523,7 @@ function showProfileSetup() {
     const avatar = document.getElementById('profileSetupAvatar');
     avatar.style.backgroundImage = '';
     avatar.classList.remove('has-photo');
-    avatar.textContent = '🎵';
+    avatar.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>';
     
     // Pre-fill with Google account info
     if (window.currentUser) {
@@ -540,7 +540,7 @@ function showProfileSetup() {
     if (setupCalStatus && window.currentUserProfile?.calendarConnected) {
         setupCalStatus.innerHTML = `
             <div style="display: flex; align-items: center; gap: 8px; color: #4CAF50;">
-                <span>✓ Calendar Connected</span>
+                <span>Calendar Connected</span>
             </div>
         `;
     }
@@ -760,7 +760,7 @@ async function showEditProfile() {
     const avatar = document.getElementById('editProfileAvatar');
     avatar.style.backgroundImage = '';
     avatar.classList.remove('has-photo');
-    avatar.textContent = '🎵';
+    avatar.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>';
     
     // Load current profile data
     const user = window.currentUser;
@@ -1075,7 +1075,7 @@ async function handleProfilePhotoSelect(event, mode) {
         } catch (error) {
             console.error('HEIC conversion failed:', error);
             alert('Could not convert HEIC image. Please try a JPEG or PNG.');
-            avatar.textContent = '🎵';
+            avatar.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>';
             return;
         }
     }
@@ -1083,14 +1083,14 @@ async function handleProfilePhotoSelect(event, mode) {
     // Validate file type
     if (!file.type.startsWith('image/')) {
         alert('Please select an image file');
-        avatar.textContent = '🎵';
+        avatar.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>';
         return;
     }
     
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
         alert('Image must be less than 5MB');
-        avatar.textContent = '🎵';
+        avatar.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>';
         return;
     }
     
@@ -1105,7 +1105,7 @@ async function handleProfilePhotoSelect(event, mode) {
     };
     reader.onerror = function(e) {
         console.error('FileReader error:', e);
-        avatar.textContent = '🎵';
+        avatar.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>';
     };
     reader.readAsDataURL(file);
     console.log('Reading file as data URL:', file.name, file.type);
@@ -1239,7 +1239,7 @@ async function searchMusicians() {
         if (musicians.length === 0) {
             resultsDiv.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-state-icon">🎵</div>
+                    <div class="empty-state-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
                     <p>No musicians found matching your search</p>
                 </div>
             `;
@@ -1250,12 +1250,12 @@ async function searchMusicians() {
             <div class="musician-card" onclick="viewMusicianProfile('${m.id}')">
                 <div class="musician-card-header">
                     ${m.photoURL 
-                        ? `<img src="${m.photoURL}" class="musician-card-avatar" onerror="this.outerHTML='<div class=\\'musician-card-avatar-placeholder\\'>🎵</div>'">`
-                        : `<div class="musician-card-avatar-placeholder">🎵</div>`
+                        ? `<img src="${m.photoURL}" class="musician-card-avatar" onerror="this.outerHTML='<div class=\\'musician-card-avatar-placeholder\\'><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>'">`
+                        : `<div class="musician-card-avatar-placeholder"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>`
                     }
                     <div class="musician-card-info">
                         <div class="musician-card-name">${escapeHtml(m.name)}</div>
-                        ${m.location ? `<div class="musician-card-location">📍 ${escapeHtml(m.location)}</div>` : ''}
+                        ${m.location ? `<div class="musician-card-location">${escapeHtml(m.location)}</div>` : ''}
                     </div>
                 </div>
                 <div class="musician-card-instruments">
@@ -1268,7 +1268,7 @@ async function searchMusicians() {
         console.error("Error searching musicians:", error);
         resultsDiv.innerHTML = `
             <div class="empty-state">
-                <div class="empty-state-icon">⚠️</div>
+                <div class="empty-state-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/></svg></div>
                 <p>Error loading musicians</p>
             </div>
         `;
@@ -1329,7 +1329,7 @@ async function viewMusicianProfile(userId) {
         const profile = profileSnap.data();
         
         document.getElementById('viewProfileName').textContent = profile.name || 'Unknown';
-        document.getElementById('viewProfileLocation').textContent = profile.location ? `📍 ${profile.location}` : '';
+        document.getElementById('viewProfileLocation').textContent = profile.location ? `${profile.location}` : '';
         
         if (profile.photoURL) {
             document.getElementById('viewProfileAvatar').src = profile.photoURL;
@@ -1397,14 +1397,14 @@ async function viewMusicianProfile(userId) {
         const backBtn = document.getElementById('profileBackBtn');
         
         if (isOwnProfile) {
-            contactBtn.innerHTML = '✏️ Edit Profile';
+            contactBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M17 3l4 4L7 21H3v-4L17 3z"/></svg>Edit Profile';
             contactBtn.onclick = function() { showEditProfile(); };
-            backBtn.innerHTML = '← Back to Home';
+            backBtn.innerHTML = 'Back to Home';
             backBtn.onclick = function() { showHomeScreen(); };
         } else {
-            contactBtn.innerHTML = '✉️ Contact';
+            contactBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Contact';
             contactBtn.onclick = function() { contactMusician(); };
-            backBtn.innerHTML = '← Back';
+            backBtn.innerHTML = 'Back';
             backBtn.onclick = function() { showHomeScreen(); };
         }
         
@@ -1516,7 +1516,7 @@ async function loadMyBands() {
         if (bands.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-state-icon">🎸</div>
+                    <div class="empty-state-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="19" cy="7" r="3"/><path d="M19 21v-1a3 3 0 00-3-3h-1"/></svg></div>
                     <p>No bands yet</p>
                     <p style="color: #666; font-size: 13px;">Create a band to get started</p>
                 </div>
@@ -1528,7 +1528,7 @@ async function loadMyBands() {
             <div class="band-card" onclick="showBandDetail('${band.id}')">
                 <div class="band-card-name">${escapeHtml(band.name)}</div>
                 <div class="band-card-info">
-                    ${band.role === 'leader' ? '👑 Leader' : band.role === 'admin' ? '🔧 Admin' : '🎵 Member'}
+                    ${band.role === 'leader' ? 'Leader' : band.role === 'admin' ? 'Admin' : 'Member'}
                     ${band.memberCount ? ` • ${band.memberCount} members` : ''}
                 </div>
             </div>
@@ -1538,7 +1538,7 @@ async function loadMyBands() {
         console.error("Error loading bands:", error);
         container.innerHTML = `
             <div class="empty-state">
-                <div class="empty-state-icon">⚠️</div>
+                <div class="empty-state-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/></svg></div>
                 <p>Error loading bands</p>
             </div>
         `;
@@ -1562,7 +1562,7 @@ function showCreateBand() {
     const photoPreview = document.getElementById('bandPhotoPreview');
     photoPreview.style.backgroundImage = '';
     photoPreview.classList.remove('has-photo');
-    photoPreview.textContent = '🎸';
+    photoPreview.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="19" cy="7" r="3"/><path d="M19 21v-1a3 3 0 00-3-3h-1"/></svg>';
     
     // Reset leader toggle
     document.querySelector('input[name="leaderType"][value="self"]').checked = true;
@@ -1619,7 +1619,7 @@ async function handleBandPhotoSelect(event) {
         } catch (error) {
             console.error('HEIC conversion failed:', error);
             alert('Could not convert image. Please try a JPEG or PNG.');
-            preview.textContent = '🎸';
+            preview.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="19" cy="7" r="3"/><path d="M19 21v-1a3 3 0 00-3-3h-1"/></svg>';
             return;
         }
     }
@@ -1813,7 +1813,7 @@ async function sendBandInviteEmail(toEmail, toName, bandName, bandId) {
                 subject: `You're invited to join ${bandName} on Tempo`,
                 html: `
                     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
-                        <h2 style="color: #333;">Hey ${toName}! 🎸</h2>
+                        <h2 style="color: #333;">Hey ${toName}!</h2>
                         <p style="color: #555; font-size: 16px; line-height: 1.6;">
                             You've been invited to join <strong>${bandName}</strong> on Tempo - the easiest way to coordinate rehearsals.
                         </p>
@@ -1843,10 +1843,10 @@ async function sendLeaderInviteEmail(toEmail, toName, bandName, bandId) {
         await addDoc(collection(db, "mail"), {
             to: toEmail,
             message: {
-                subject: `👑 You're invited to lead ${bandName} on Tempo`,
+                subject: `You're invited to lead ${bandName} on Tempo`,
                 html: `
                     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
-                        <h2 style="color: #333;">Hey ${toName}! 👑</h2>
+                        <h2 style="color: #333;">Hey ${toName}!</h2>
                         <p style="color: #555; font-size: 16px; line-height: 1.6;">
                             You've been invited to <strong>lead ${bandName}</strong> on Tempo - the easiest way to coordinate rehearsals.
                         </p>
@@ -1908,7 +1908,7 @@ async function showBandDetail(bandId) {
         } else {
             photoEl.style.backgroundImage = '';
             photoEl.classList.remove('has-photo');
-            photoEl.textContent = '🎸';
+            photoEl.innerHTML = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="19" cy="7" r="3"/><path d="M19 21v-1a3 3 0 00-3-3h-1"/></svg>';
         }
         
         // Set share URL
@@ -1956,9 +1956,9 @@ window.showBandDetail = showBandDetail;
 function copyBandLink() {
     navigator.clipboard.writeText(window.currentBandShareUrl).then(() => {
         const btn = document.getElementById('copyBandBtn');
-        btn.textContent = '✓ Copied!';
+        btn.textContent = 'Copied!';
         setTimeout(() => {
-            btn.textContent = '📋 Copy Link';
+            btn.textContent = 'Copy Link';
         }, 2000);
     });
 }
@@ -2014,7 +2014,7 @@ async function showBandInviteLanding(bandId) {
         } else {
             photoEl.style.backgroundImage = '';
             photoEl.classList.remove('has-photo');
-            photoEl.textContent = '🎸';
+            photoEl.innerHTML = '<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="19" cy="7" r="3"/><path d="M19 21v-1a3 3 0 00-3-3h-1"/></svg>';
         }
         
     } catch (error) {
@@ -2164,7 +2164,7 @@ async function loadBandMembers(bandId, canManage, band) {
             html += `
                 <div class="member-item">
                     <div class="member-info">
-                        <div class="member-name">${escapeHtml(band.leaderName || 'Leader')} 👑</div>
+                        <div class="member-name">${escapeHtml(band.leaderName || 'Leader')}</div>
                         <div class="member-email">${escapeHtml(band.leaderEmail || '')}</div>
                     </div>
                     <span class="member-status pending">Pending Leader</span>
@@ -2174,7 +2174,7 @@ async function loadBandMembers(bandId, canManage, band) {
             html += `
                 <div class="member-item">
                     <div class="member-info">
-                        <div class="member-name">${escapeHtml(band.leaderName || 'Leader')} 👑</div>
+                        <div class="member-name">${escapeHtml(band.leaderName || 'Leader')}</div>
                         <div class="member-email">${escapeHtml(band.leaderEmail || '')}</div>
                     </div>
                     <span class="member-status accepted">Leader</span>
@@ -2191,7 +2191,7 @@ async function loadBandMembers(bandId, canManage, band) {
                         <div class="member-email">${escapeHtml(member.email)}</div>
                     </div>
                     <span class="member-status ${member.status}">${member.status === 'accepted' ? 'Joined' : 'Pending'}</span>
-                    ${canManage ? `<button class="member-remove" onclick="removeBandMember('${docSnap.id}')">×</button>` : ''}
+                    ${canManage ? `<button class="member-remove" onclick="removeBandMember('${docSnap.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>` : ''}
                 </div>
             `;
         });
@@ -2446,18 +2446,18 @@ async function notifyBandMembersOfGig(bandId, gigId, gigData) {
             await addDoc(collection(db, "mail"), {
                 to: member.email,
                 message: {
-                    subject: `🎸 New Gig: ${gigData.bandName} at ${gigData.venue}`,
+                    subject: `New Gig: ${gigData.bandName} at ${gigData.venue}`,
                     html: `
                         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto;">
-                            <h2 style="color: #333;">Hey ${member.name}! 🎵</h2>
+                            <h2 style="color: #333;">Hey ${member.name}!</h2>
                             <p style="color: #555; font-size: 16px; line-height: 1.6;">
                                 A new gig has been scheduled for <strong>${gigData.bandName}</strong>!
                             </p>
                             
                             <div style="background: #f8f8f8; border-radius: 12px; padding: 20px; margin: 20px 0;">
-                                <p style="margin: 0 0 8px; color: #333;"><strong>📍 Venue:</strong> ${gigData.venue}</p>
-                                <p style="margin: 0 0 8px; color: #333;"><strong>📅 Date:</strong> ${formattedDate}</p>
-                                ${gigData.setTime ? `<p style="margin: 0; color: #333;"><strong>🎤 Set Time:</strong> ${gigData.setTime}</p>` : ''}
+                                <p style="margin: 0 0 8px; color: #333;"><strong>Venue:</strong> ${gigData.venue}</p>
+                                <p style="margin: 0 0 8px; color: #333;"><strong>Date:</strong> ${formattedDate}</p>
+                                ${gigData.setTime ? `<p style="margin: 0; color: #333;"><strong>Set Time:</strong> ${gigData.setTime}</p>` : ''}
                             </div>
                             
                             <p style="margin: 30px 0;">
@@ -2659,7 +2659,7 @@ async function loadGig(gigId) {
                             const el = document.createElement('div');
                             el.className = 'audio-file-player';
                             el.innerHTML = `
-                                <div class="audio-file-name">🎵 ${file.name}</div>
+                                <div class="audio-file-name">${file.name}</div>
                                 <audio controls src="${file.url}" crossorigin="anonymous" preload="metadata"></audio>
                                 <a class="audio-download-link" href="${file.url}" target="_blank">↓ Download</a>
                             `;
@@ -2714,7 +2714,7 @@ async function loadGig(gigId) {
                         <div class="slot-time">${formatTime(slot.time)}</div>
                         <div class="slot-responses">${responseHtml}</div>
                     </div>
-                    <div class="slot-check">✓</div>
+                    <div class="slot-check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20,6 9,17 4,12"/></svg></div>
                 `;
                 slotsContainer.appendChild(slotEl);
             });
@@ -2802,9 +2802,9 @@ const UPDATE_CONFIG = {
     version: "2026-01-11",
     title: "Quick heads up",
     items: [
-        { emoji: "🏠", title: "New home feed", desc: "discover musicians and see what's happening" },
-        { emoji: "📱", title: "Bottom tabs", desc: "faster access to your gigs and bands" },
-        { emoji: "👤", title: "Richer profiles", desc: "add your gear, influences, and more" }
+        { title: "New home feed", desc: "discover musicians and see what's happening" },
+        { title: "Bottom tabs", desc: "faster access to your gigs and bands" },
+        { title: "Richer profiles", desc: "add your gear, influences, and more" }
     ],
     footer: "All your stuff is still here, just reorganized a bit."
 };
@@ -2826,8 +2826,8 @@ async function checkWhatsNew() {
         contentEl.innerHTML = `
             <p>We made some changes:</p>
             <ul>
-                ${UPDATE_CONFIG.items.map(item => 
-                    `<li>${item.emoji} <strong>${item.title}</strong> — ${item.desc}</li>`
+                ${UPDATE_CONFIG.items.map(item =>
+                    `<li><strong>${item.title}</strong> — ${item.desc}</li>`
                 ).join('')}
             </ul>
             <p style="color: #888; font-size: 14px; margin-top: 16px;">${UPDATE_CONFIG.footer}</p>
@@ -3029,7 +3029,7 @@ function createMusicianCard(musician) {
     if (musician.photoURL) {
         avatarContent = `<img src="${musician.photoURL}" alt="${escapeHtml(musician.name)}">`;
     } else {
-        avatarContent = '🎵';
+        avatarContent = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>';
     }
     
     card.innerHTML = `
@@ -3169,7 +3169,7 @@ function renderTags(type) {
     container.innerHTML = tags.map((tag, index) => `
         <span class="tag">
             ${escapeHtml(tag)}
-            <span class="tag-remove" onclick="removeTag('${type}', ${index})">×</span>
+            <span class="tag-remove" onclick="removeTag('${type}', ${index})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
         </span>
     `).join('');
 }

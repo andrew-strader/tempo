@@ -26,7 +26,7 @@
     <!-- Global Header (shown when viewing a linked gig) -->
     <div class="global-header visible" id="globalHeader">
         <div class="global-header-logo" onclick="goHome()" style="cursor: pointer;"><img src="/tempo-logo.svg" alt="Tempo" class="header-logo-img"></div>
-        <button class="hamburger-btn" onclick="toggleMenu()">☰</button>
+        <button class="hamburger-btn" onclick="toggleMenu()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
     </div>
     
     <!-- Menu Overlay -->
@@ -35,7 +35,7 @@
     <!-- Availability Calendar Modal -->
     <div class="avail-modal-overlay" id="availModalOverlay">
         <div class="avail-modal">
-            <button class="avail-modal-close" onclick="closeAvailabilityCalendar()">×</button>
+            <button class="avail-modal-close" onclick="closeAvailabilityCalendar()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
             <div class="avail-modal-title">Band Availability</div>
             <div class="avail-modal-subtitle" id="availModalSubtitle">Checking calendars...</div>
             
@@ -49,8 +49,8 @@
                     <div class="avail-cal-header">
                         <span class="avail-cal-month" id="availCalMonth">January 2025</span>
                         <div class="avail-cal-nav">
-                            <button onclick="availPrevMonth()">←</button>
-                            <button onclick="availNextMonth()">→</button>
+                            <button onclick="availPrevMonth()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15,18 9,12 15,6"/></svg></button>
+                            <button onclick="availNextMonth()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,6 15,12 9,18"/></svg></button>
                         </div>
                     </div>
                     
@@ -87,7 +87,7 @@
                 <div class="avail-times-panel" id="availTimesPanel">
                     <div class="avail-times-header">
                         <span class="avail-times-date" id="availTimesDate">Mon, Jan 15</span>
-                        <button class="avail-times-close" onclick="closeTimesPanel()">×</button>
+                        <button class="avail-times-close" onclick="closeTimesPanel()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                     </div>
                     <div id="availTimeSlots">
                         <!-- Time slots rendered dynamically -->
@@ -113,35 +113,35 @@
     <div class="slide-menu" id="slideMenu">
         <div class="menu-header">
             <div class="menu-title">Menu</div>
-            <button class="menu-close" onclick="toggleMenu()">×</button>
+            <button class="menu-close" onclick="toggleMenu()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
         
         <div id="menuUserInfo" style="display: none;"></div>
         
         <div id="menuViewProfile" class="menu-item" style="display: none;" onclick="goToViewMyProfile()">
-            <span class="menu-item-icon">👤</span>
+            <span class="menu-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></span>
             <span class="menu-item-text">View My Profile</span>
         </div>
-        
+
         <div id="menuEditProfile" class="menu-item" style="display: none;" onclick="goToEditProfile()">
-            <span class="menu-item-icon">✏️</span>
+            <span class="menu-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3l4 4L7 21H3v-4L17 3z"/></svg></span>
             <span class="menu-item-text">Edit Profile</span>
         </div>
-        
+
         <div class="menu-divider" id="menuProfileDivider" style="display: none;"></div>
-        
+
         <div class="menu-item" onclick="goToHelp()">
-            <span class="menu-item-icon">❓</span>
+            <span class="menu-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9 9a3 3 0 116 0c0 2-3 3-3 3"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg></span>
             <span class="menu-item-text">Help</span>
         </div>
-        
+
         <div class="menu-item" onclick="goToPrivacy()">
-            <span class="menu-item-icon">🔒</span>
+            <span class="menu-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></span>
             <span class="menu-item-text">Privacy Policy</span>
         </div>
-        
+
         <div class="menu-item" onclick="goToTerms()">
-            <span class="menu-item-icon">📜</span>
+            <span class="menu-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg></span>
             <span class="menu-item-text">Terms of Service</span>
         </div>
         
@@ -155,7 +155,7 @@
         </div>
         
         <div id="menuSignOut" class="menu-item" style="display: none;" onclick="signOutFromMenu()">
-            <span class="menu-item-icon">🚪</span>
+            <span class="menu-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>
             <span class="menu-item-text">Sign Out</span>
         </div>
     </div>
@@ -176,18 +176,18 @@
     <div class="create-sheet" id="createSheet">
         <div class="create-sheet-header">
             <div class="create-sheet-title">Create</div>
-            <button class="create-sheet-close" onclick="closeCreateSheet()">×</button>
+            <button class="create-sheet-close" onclick="closeCreateSheet()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
         <div class="create-sheet-options">
             <div class="create-sheet-option" onclick="closeCreateSheet(); startNewGig();">
-                <span class="create-sheet-option-icon">🎤</span>
+                <span class="create-sheet-option-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
                 <div class="create-sheet-option-text">
                     <h4>New Gig</h4>
                     <p>Schedule a show with rehearsals</p>
                 </div>
             </div>
             <div class="create-sheet-option" onclick="closeCreateSheet(); showCreateBand();">
-                <span class="create-sheet-option-icon">🎸</span>
+                <span class="create-sheet-option-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="19" cy="7" r="3"/><path d="M19 21v-1a3 3 0 00-3-3h-1"/></svg></span>
                 <div class="create-sheet-option-text">
                     <h4>New Band</h4>
                     <p>Create a band and invite members</p>
@@ -199,19 +199,19 @@
     <!-- Bottom Tab Bar -->
     <div class="bottom-tab-bar" id="bottomTabBar">
         <button class="tab-btn active" id="tabHome" onclick="switchTab('home')">
-            <span class="tab-icon">🏠</span>
+            <span class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg></span>
             <span class="tab-label">Home</span>
         </button>
         <button class="tab-btn" id="tabGigs" onclick="switchTab('gigs')">
-            <span class="tab-icon">📅</span>
+            <span class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
             <span class="tab-label">Gigs</span>
         </button>
         <button class="tab-btn" id="tabBands" onclick="switchTab('bands')">
-            <span class="tab-icon">🎸</span>
+            <span class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="19" cy="7" r="3"/><path d="M19 21v-1a3 3 0 00-3-3h-1"/></svg></span>
             <span class="tab-label">Bands</span>
         </button>
         <button class="tab-btn" id="tabCreate" onclick="switchTab('create')">
-            <span class="tab-icon">➕</span>
+            <span class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
             <span class="tab-label">Create</span>
         </button>
     </div>
@@ -239,7 +239,7 @@
                     <p>Loading musicians...</p>
                 </div>
                 <div class="feed-empty" id="feedEmpty" style="display: none;">
-                    <div class="feed-empty-icon">🎸</div>
+                    <div class="feed-empty-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="19" cy="7" r="3"/><path d="M19 21v-1a3 3 0 00-3-3h-1"/></svg></div>
                     <h3>No musicians yet</h3>
                     <p>Be the first to complete your profile and appear here!</p>
                     <button class="btn" onclick="goToEditProfile()">Complete Your Profile</button>
@@ -265,31 +265,31 @@
             
             <div class="home-options">
                 <button class="home-option-btn" onclick="startNewGig()">
-                    <span class="home-option-icon">🎤</span>
+                    <span class="home-option-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
                     <div class="home-option-text">
                         <div class="home-option-title">Create a Gig</div>
                         <div class="home-option-desc">Plan rehearsals for an upcoming show</div>
                     </div>
                 </button>
-                
+
                 <button class="home-option-btn" id="dashboardLink" onclick="showMyGigs()">
-                    <span class="home-option-icon">📋</span>
+                    <span class="home-option-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor"/><circle cx="4" cy="12" r="1.5" fill="currentColor"/><circle cx="4" cy="18" r="1.5" fill="currentColor"/></svg></span>
                     <div class="home-option-text">
                         <div class="home-option-title">My Gigs</div>
                         <div class="home-option-desc">View all your shows and rehearsals</div>
                     </div>
                 </button>
-                
+
                 <button class="home-option-btn" onclick="showMyBands()">
-                    <span class="home-option-icon">🎸</span>
+                    <span class="home-option-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="19" cy="7" r="3"/><path d="M19 21v-1a3 3 0 00-3-3h-1"/></svg></span>
                     <div class="home-option-text">
                         <div class="home-option-title">My Bands</div>
                         <div class="home-option-desc">Manage your bands and members</div>
                     </div>
                 </button>
-                
+
                 <button class="home-option-btn" onclick="showMusicianDiscovery()">
-                    <span class="home-option-icon">🔍</span>
+                    <span class="home-option-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
                     <div class="home-option-text">
                         <div class="home-option-title">Find Musicians</div>
                         <div class="home-option-desc">Discover players for your band</div>
@@ -306,7 +306,7 @@
             <div class="card">
                 <h2>Profile Photo</h2>
                 <div class="profile-avatar-section">
-                    <div id="profileSetupAvatar" class="profile-avatar-circle">🎵</div>
+                    <div id="profileSetupAvatar" class="profile-avatar-circle"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>
                     <input type="file" id="profilePhotoInput" accept="image/*" style="display:none" onchange="handleProfilePhotoSelect(event, 'setup')">
                     <button class="btn btn-secondary" style="margin-top: 12px; padding: 8px 16px; font-size: 13px;" onclick="document.getElementById('profilePhotoInput').click()">Upload Photo</button>
                 </div>
@@ -334,39 +334,30 @@
                 
                 <div class="instrument-grid" id="instrumentGrid">
                     <div class="instrument-chip" data-instrument="vocals" onclick="toggleInstrument(this)">
-                        <span class="instrument-chip-icon">🎤</span>
                         Vocals
                     </div>
                     <div class="instrument-chip" data-instrument="guitar" onclick="toggleInstrument(this)">
-                        <span class="instrument-chip-icon">🎸</span>
                         Guitar
                     </div>
                     <div class="instrument-chip" data-instrument="bass" onclick="toggleInstrument(this)">
-                        <span class="instrument-chip-icon">🎸</span>
                         Bass
                     </div>
                     <div class="instrument-chip" data-instrument="drums" onclick="toggleInstrument(this)">
-                        <span class="instrument-chip-icon">🥁</span>
                         Drums
                     </div>
                     <div class="instrument-chip" data-instrument="keys" onclick="toggleInstrument(this)">
-                        <span class="instrument-chip-icon">🎹</span>
                         Keys
                     </div>
                     <div class="instrument-chip" data-instrument="saxophone" onclick="toggleInstrument(this)">
-                        <span class="instrument-chip-icon">🎷</span>
                         Sax
                     </div>
                     <div class="instrument-chip" data-instrument="trumpet" onclick="toggleInstrument(this)">
-                        <span class="instrument-chip-icon">🎺</span>
                         Trumpet
                     </div>
                     <div class="instrument-chip" data-instrument="violin" onclick="toggleInstrument(this)">
-                        <span class="instrument-chip-icon">🎻</span>
                         Strings
                     </div>
                     <div class="instrument-chip" data-instrument="other" onclick="toggleInstrumentOther(this, 'profileOtherInstrument')">
-                        <span class="instrument-chip-icon">🎵</span>
                         Other
                     </div>
                 </div>
@@ -388,7 +379,7 @@
             
             <div class="card">
                 <div class="calendar-integration-header">
-                    <span>📅 Calendar Integration</span>
+                    <span>Calendar Integration</span>
                 </div>
                 <p class="helper-text">Connect your Google Calendar to help band leaders find times that work for everyone.</p>
                 
@@ -406,7 +397,7 @@
                 <p class="helper-text" style="margin-top: 8px; font-size: 11px; opacity: 0.6;">Optional - you can always do this later in Edit Profile</p>
             </div>
             
-            <button class="btn btn-primary" onclick="saveProfile()" style="margin-top: 24px;">Save Profile →</button>
+            <button class="btn btn-primary" onclick="saveProfile()" style="margin-top: 24px;">Save Profile</button>
             <button class="btn btn-secondary" onclick="skipProfileSetup()">Skip for now</button>
         </div>
         
@@ -418,7 +409,7 @@
             <div class="card">
                 <h2>Profile Photo</h2>
                 <div class="profile-avatar-section">
-                    <div id="editProfileAvatar" class="profile-avatar-circle">🎵</div>
+                    <div id="editProfileAvatar" class="profile-avatar-circle"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>
                     <input type="file" id="editProfilePhotoInput" accept="image/*" style="display:none" onchange="handleProfilePhotoSelect(event, 'edit')">
                     <button class="btn btn-secondary" style="margin-top: 12px; padding: 8px 16px; font-size: 13px;" onclick="document.getElementById('editProfilePhotoInput').click()">Change Photo</button>
                 </div>
@@ -446,39 +437,30 @@
                 
                 <div class="instrument-grid" id="editInstrumentGrid">
                     <div class="instrument-chip" data-instrument="vocals" onclick="toggleInstrument(this)">
-                        <span class="instrument-chip-icon">🎤</span>
                         Vocals
                     </div>
                     <div class="instrument-chip" data-instrument="guitar" onclick="toggleInstrument(this)">
-                        <span class="instrument-chip-icon">🎸</span>
                         Guitar
                     </div>
                     <div class="instrument-chip" data-instrument="bass" onclick="toggleInstrument(this)">
-                        <span class="instrument-chip-icon">🎸</span>
                         Bass
                     </div>
                     <div class="instrument-chip" data-instrument="drums" onclick="toggleInstrument(this)">
-                        <span class="instrument-chip-icon">🥁</span>
                         Drums
                     </div>
                     <div class="instrument-chip" data-instrument="keys" onclick="toggleInstrument(this)">
-                        <span class="instrument-chip-icon">🎹</span>
                         Keys
                     </div>
                     <div class="instrument-chip" data-instrument="saxophone" onclick="toggleInstrument(this)">
-                        <span class="instrument-chip-icon">🎷</span>
                         Sax
                     </div>
                     <div class="instrument-chip" data-instrument="trumpet" onclick="toggleInstrument(this)">
-                        <span class="instrument-chip-icon">🎺</span>
                         Trumpet
                     </div>
                     <div class="instrument-chip" data-instrument="violin" onclick="toggleInstrument(this)">
-                        <span class="instrument-chip-icon">🎻</span>
                         Strings
                     </div>
                     <div class="instrument-chip" data-instrument="other" onclick="toggleInstrumentOther(this, 'editOtherInstrument')">
-                        <span class="instrument-chip-icon">🎵</span>
                         Other
                     </div>
                 </div>
@@ -499,7 +481,7 @@
             </div>
             
             <div class="card">
-                <h2>📅 Calendar Integration</h2>
+                <h2>Calendar Integration</h2>
                 <p class="helper-text" style="margin-bottom: 16px;">Connect your Google Calendar to help band leaders find times that work for everyone.</p>
                 
                 <div id="calendarStatus">
@@ -511,7 +493,7 @@
                     </div>
                     <div id="calendarConnected" style="display: none;">
                         <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(76, 175, 80, 0.1); border-radius: 8px; border: 1px solid rgba(76, 175, 80, 0.3);">
-                            <span style="color: #4CAF50;">✓ Calendar Connected</span>
+                            <span style="color: #4CAF50;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="vertical-align: -2px; margin-right: 4px;"><polyline points="20,6 9,17 4,12"/></svg>Calendar Connected</span>
                             <button class="btn-small" onclick="disconnectGoogleCalendar()" style="background: transparent; color: #e74c3c; border: 1px solid #e74c3c;">Disconnect</button>
                         </div>
                     </div>
@@ -583,7 +565,7 @@
             </div>
             
             <button class="btn btn-primary" onclick="updateProfile()" style="margin-top: 24px;">Save Changes</button>
-            <button class="btn btn-secondary" onclick="showHomeScreen()">← Cancel</button>
+            <button class="btn btn-secondary" onclick="showHomeScreen()">Cancel</button>
         </div>
         
         <!-- Screen: Musician Discovery -->
@@ -611,12 +593,12 @@
             
             <div id="musicianResults">
                 <div class="empty-state">
-                    <div class="empty-state-icon">🔍</div>
+                    <div class="empty-state-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
                     <p>Search for musicians by instrument or location</p>
                 </div>
             </div>
-            
-            <button class="btn btn-secondary" onclick="showHomeScreen()">← Back</button>
+
+            <button class="btn btn-secondary" onclick="showHomeScreen()">Back</button>
         </div>
         
         <!-- Screen: Musician Profile View -->
@@ -625,7 +607,7 @@
             
             <div class="profile-view-header">
                 <img id="viewProfileAvatar" class="profile-view-avatar" src="" style="display:none;">
-                <div id="viewProfileAvatarPlaceholder" class="profile-avatar-placeholder" style="width:100px;height:100px;font-size:40px;margin:0 auto 16px;">🎵</div>
+                <div id="viewProfileAvatarPlaceholder" class="profile-avatar-placeholder" style="width:100px;height:100px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>
                 <div class="profile-view-name" id="viewProfileName">Loading...</div>
                 <div class="profile-view-location" id="viewProfileLocation"></div>
                 <div class="profile-view-instruments" id="viewProfileInstruments"></div>
@@ -652,10 +634,10 @@
             </div>
             
             <button class="contact-btn" id="contactMusicianBtn" onclick="contactMusician()">
-                ✉️ Contact
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 6px;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Contact
             </button>
-            
-            <button class="btn btn-secondary" id="profileBackBtn" onclick="showMusicianDiscovery()" style="margin-top: 12px;">← Back to Search</button>
+
+            <button class="btn btn-secondary" id="profileBackBtn" onclick="showMusicianDiscovery()" style="margin-top: 12px;">Back to Search</button>
         </div>
         
         <!-- Screen: Privacy Policy -->
@@ -720,7 +702,7 @@
                 </div>
             </div>
             
-            <button class="btn btn-secondary" onclick="goBackFromPrivacy()" style="margin-top: 20px;">← Back</button>
+            <button class="btn btn-secondary" onclick="goBackFromPrivacy()" style="margin-top: 20px;">Back</button>
         </div>
         
         <!-- Screen: Terms of Service -->
@@ -780,7 +762,7 @@
                 </div>
             </div>
             
-            <button class="btn btn-secondary" onclick="goBackFromTerms()" style="margin-top: 20px;">← Back</button>
+            <button class="btn btn-secondary" onclick="goBackFromTerms()" style="margin-top: 20px;">Back</button>
         </div>
         
         <!-- Screen: Help Center -->
@@ -790,27 +772,27 @@
             
             <div class="help-content">
                 <div class="help-section">
-                    <h2>👋 What is Tempo?</h2>
+                    <h2>What is Tempo?</h2>
                     <p>Tempo helps bands coordinate rehearsals for upcoming shows. Create a gig, share it with your band, and find the best times for everyone to practice.</p>
                 </div>
-                
+
                 <div class="help-section">
-                    <h2>🎸 Managing Bands</h2>
+                    <h2>Managing Bands</h2>
                     <h3>Creating a Band</h3>
-                    <p>Go to <strong>My Bands → Create New Band</strong>. Add your band's name, photo, and bio. Then add your bandmates by entering their names and email addresses.</p>
-                    
+                    <p>Go to <strong>My Bands &rarr; Create New Band</strong>. Add your band's name, photo, and bio. Then add your bandmates by entering their names and email addresses.</p>
+
                     <h3>Inviting Members</h3>
                     <p>When you create a band, each member receives an email invitation. They can also join by clicking a share link you post to your group chat.</p>
-                    
+
                     <h3>Designating a Leader</h3>
                     <p>If you're not the band leader, you can invite someone else to lead. Select "Invite someone else as leader" when creating the band. They'll get a special invite and become the leader when they accept.</p>
                 </div>
-                
+
                 <div class="help-section">
-                    <h2>🎤 Creating Gigs</h2>
+                    <h2>Creating Gigs</h2>
                     <h3>What's a Gig?</h3>
                     <p>A gig is an upcoming show that needs rehearsals. You enter the show details (venue, date, set time) and suggest rehearsal times for your band to vote on.</p>
-                    
+
                     <h3>How to Create a Gig</h3>
                     <ol>
                         <li>Tap <strong>Create a Gig</strong> from the home screen</li>
@@ -819,37 +801,37 @@
                         <li>Add possible rehearsal times</li>
                         <li>Share the link with your band</li>
                     </ol>
-                    
+
                     <h3>Band Notifications</h3>
                     <p>If you select a band when creating a gig, all band members are automatically notified via email. They can click the link to submit their availability.</p>
                 </div>
-                
+
                 <div class="help-section">
-                    <h2>📅 Rehearsal Scheduling</h2>
+                    <h2>Rehearsal Scheduling</h2>
                     <h3>Submitting Availability</h3>
-                    <p>When you receive a gig link, tap each rehearsal time slot to mark yourself as available (✓) or unavailable (✗). Submit when done.</p>
-                    
+                    <p>When you receive a gig link, tap each rehearsal time slot to mark yourself as available or unavailable. Submit when done.</p>
+
                     <h3>Confirming Rehearsals</h3>
                     <p>Band leaders can see everyone's availability on the dashboard. Once everyone has responded, confirm the times that work best. All band members will be notified of the confirmed rehearsals.</p>
                 </div>
-                
+
                 <div class="help-section">
-                    <h2>🔍 Finding Musicians</h2>
+                    <h2>Finding Musicians</h2>
                     <p>Looking for players? Use <strong>Find Musicians</strong> to discover other musicians on Tempo. Filter by location and instrument to find the perfect fit for your band.</p>
                 </div>
-                
+
                 <div class="help-section">
-                    <h2>👤 Your Profile</h2>
+                    <h2>Your Profile</h2>
                     <p>Set up your profile to be discoverable by other musicians. Add your photo, instruments you play, location, and a bio. Access your profile from the menu.</p>
                 </div>
-                
+
                 <div class="help-section">
-                    <h2>💬 Need More Help?</h2>
+                    <h2>Need More Help?</h2>
                     <p>Have questions or feedback? Email us at <a href="/cdn-cgi/l/email-protection#2445575056454041561516644349454d480a474b49" style="color: #4a90e2;"><span class="__cf_email__" data-cfemail="eb8a989f998a8f8e99dad9ab8c868a8287c5888486">[email&#160;protected]</span></a></p>
                 </div>
             </div>
-            
-            <button class="btn btn-secondary" onclick="showHomeScreen()" style="margin-top: 20px;">← Back to Home</button>
+
+            <button class="btn btn-secondary" onclick="showHomeScreen()" style="margin-top: 20px;">Back to Home</button>
         </div>
         
         <!-- Screen: My Bands -->
@@ -861,12 +843,12 @@
             
             <div id="myBandsList">
                 <div class="empty-state">
-                    <div class="empty-state-icon">🎸</div>
+                    <div class="empty-state-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="19" cy="7" r="3"/><path d="M19 21v-1a3 3 0 00-3-3h-1"/></svg></div>
                     <p>Loading bands...</p>
                 </div>
             </div>
-            
-            <button class="btn btn-secondary" onclick="showHomeScreen()" style="margin-top: 20px;">← Back to Home</button>
+
+            <button class="btn btn-secondary" onclick="showHomeScreen()" style="margin-top: 20px;">Back to Home</button>
         </div>
         
         <!-- Screen: Create Band -->
@@ -878,7 +860,7 @@
                 <h2>Band Info</h2>
                 
                 <div class="band-photo-section">
-                    <div id="bandPhotoPreview" class="band-photo-circle">🎸</div>
+                    <div id="bandPhotoPreview" class="band-photo-circle"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="19" cy="7" r="3"/><path d="M19 21v-1a3 3 0 00-3-3h-1"/></svg></div>
                     <input type="file" id="bandPhotoInput" accept="image/*" style="display:none" onchange="handleBandPhotoSelect(event)">
                     <button class="btn btn-secondary" style="margin-top: 12px; padding: 8px 16px; font-size: 13px;" onclick="document.getElementById('bandPhotoInput').click()">Upload Band Photo</button>
                 </div>
@@ -944,7 +926,7 @@
             <div class="logo"><img src="/tempo-logo.svg" alt="Tempo" class="logo-img"></div>
             
             <div class="band-header">
-                <div id="bandDetailPhoto" class="band-detail-photo">🎸</div>
+                <div id="bandDetailPhoto" class="band-detail-photo"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="19" cy="7" r="3"/><path d="M19 21v-1a3 3 0 00-3-3h-1"/></svg></div>
                 <h1 id="bandDetailName">Band Name</h1>
                 <span class="band-role-badge" id="bandDetailRole">Leader</span>
             </div>
@@ -956,8 +938,8 @@
                     <span id="bandShareUrl" class="share-url-text">Loading...</span>
                 </div>
                 <div class="share-buttons">
-                    <button class="btn btn-secondary" onclick="copyBandLink()" id="copyBandBtn">📋 Copy Link</button>
-                    <button class="btn" onclick="shareBandToMessages()">💬 Share to Messages</button>
+                    <button class="btn btn-secondary" onclick="copyBandLink()" id="copyBandBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copy Link</button>
+                    <button class="btn" onclick="shareBandToMessages()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Share</button>
                 </div>
             </div>
             
@@ -979,7 +961,7 @@
             </div>
             
             <button id="createGigForBandBtn" class="btn" onclick="createGigForBand()" style="display: none;">+ Create Gig for this Band</button>
-            <button class="btn btn-secondary" onclick="showMyBands()" style="margin-top: 12px;">← Back to My Bands</button>
+            <button class="btn btn-secondary" onclick="showMyBands()" style="margin-top: 12px;">Back to My Bands</button>
         </div>
         
         <!-- Screen: Band Invite Landing -->
@@ -987,7 +969,7 @@
             <div class="logo"><img src="/tempo-logo.svg" alt="Tempo" class="logo-img"></div>
             
             <div class="band-invite-card">
-                <div id="inviteBandPhoto" class="band-invite-photo">🎸</div>
+                <div id="inviteBandPhoto" class="band-invite-photo"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="19" cy="7" r="3"/><path d="M19 21v-1a3 3 0 00-3-3h-1"/></svg></div>
                 <h1 id="inviteBandName">Band Name</h1>
                 <p id="inviteBandBio" class="band-invite-bio"></p>
                 <p class="band-invite-text">You've been invited to join this band on Tempo</p>
@@ -1054,7 +1036,7 @@
                 <label>Notes</label>
                 <textarea id="notes" placeholder="Additional details for the band..."></textarea>
                 
-                <button class="btn btn-primary" onclick="goToScreen2()">Continue →</button>
+                <button class="btn btn-primary" onclick="goToScreen2()">Continue</button>
             </div>
         </div>
         
@@ -1097,7 +1079,7 @@
                 
                 <div id="suggestTimesSection" style="display: none; margin-bottom: 20px;">
                     <button class="btn btn-secondary" onclick="openAvailabilityCalendar()" id="suggestTimesBtn" style="width: 100%;">
-                        📅 Check Band Calendars
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Check Band Calendars
                     </button>
                     <p class="helper-text" id="suggestTimesHelper" style="text-align: center; margin: 8px 0 0;"></p>
                 </div>
@@ -1129,8 +1111,8 @@
                 
                 <div id="statusMessage"></div>
                 
-                <button class="btn btn-primary" onclick="goToScreen2b()">Continue →</button>
-                <button class="btn btn-secondary" onclick="goToScreen1()">← Back</button>
+                <button class="btn btn-primary" onclick="goToScreen2b()">Continue</button>
+                <button class="btn btn-secondary" onclick="goToScreen1()">Back</button>
             </div>
         </div>
         
@@ -1205,8 +1187,8 @@
                 💡 You can skip this and add materials later from your dashboard
             </div>
             
-            <button class="btn btn-primary" id="createBtn" onclick="createGig()">Create Gig →</button>
-            <button class="btn btn-secondary" onclick="goBackToScreen2()">← Back</button>
+            <button class="btn btn-primary" id="createBtn" onclick="createGig()">Create Gig</button>
+            <button class="btn btn-secondary" onclick="goBackToScreen2()">Back</button>
         </div>
         
         <!-- Screen 3: Success -->
@@ -1214,7 +1196,7 @@
             <div class="logo"><img src="/tempo-logo.svg" alt="Tempo" class="logo-img"></div>
             
             <div class="card success-card">
-                <div class="success-icon">✓</div>
+                <div class="success-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg></div>
                 <h1 class="success-title">You're set!</h1>
                 <p class="success-subtitle">Share this link with your band</p>
                 
@@ -1235,8 +1217,8 @@
                 </button>
             </div>
             
-            <button class="btn btn-secondary" onclick="viewDashboard()">View Responses →</button>
-            <button class="btn btn-secondary" onclick="startOver()">← Create another gig</button>
+            <button class="btn btn-secondary" onclick="viewDashboard()">View Responses</button>
+            <button class="btn btn-secondary" onclick="startOver()">Create another gig</button>
         </div>
         
         <!-- Screen: My Gigs Dashboard -->
@@ -1250,7 +1232,7 @@
                 <h2>My Gigs</h2>
                 <div id="myGigsList" class="my-gigs-list">
                     <div class="empty-state">
-                        <div class="empty-state-icon">🎵</div>
+                        <div class="empty-state-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
                         <p>Loading your gigs...</p>
                     </div>
                 </div>
@@ -1277,7 +1259,7 @@
             
             <div class="card" id="confirmedCard" style="display:none;">
                 <div class="card-header">
-                    <h2>✓ Confirmed Rehearsals</h2>
+                    <h2>Confirmed Rehearsals</h2>
                 </div>
                 <p class="confirmed-note">Your band has been notified of these times.</p>
                 <div id="confirmedList"></div>
@@ -1316,10 +1298,10 @@
             
             <div class="dashboard-actions">
                 <button class="btn btn-secondary" onclick="refreshDashboard()">↻ Refresh</button>
-                <button class="btn btn-secondary edit-gig-btn" onclick="editGig()">✏️ Edit Gig Details</button>
-                <button class="btn btn-secondary" onclick="backToShare()">📤 Share Link</button>
-                <button class="btn btn-secondary" onclick="showMyGigs()">📋 My Gigs</button>
-                <button class="btn btn-secondary" onclick="showHomeScreen()">🏠 Home</button>
+                <button class="btn btn-secondary edit-gig-btn" onclick="editGig()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M17 3l4 4L7 21H3v-4L17 3z"/></svg>Edit Gig Details</button>
+                <button class="btn btn-secondary" onclick="backToShare()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16,6 12,2 8,6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>Share Link</button>
+                <button class="btn btn-secondary" onclick="showMyGigs()">My Gigs</button>
+                <button class="btn btn-secondary" onclick="showHomeScreen()">Home</button>
             </div>
         </div>
         
@@ -1400,7 +1382,7 @@
             </div>
             
             <button class="btn btn-primary" onclick="saveGigEdits()">Save Changes</button>
-            <button class="btn btn-secondary" onclick="cancelEdit()">← Cancel</button>
+            <button class="btn btn-secondary" onclick="cancelEdit()">Cancel</button>
         </div>
         
         <!-- Screen 7: Event Card (shareable finalized view) -->
@@ -1433,7 +1415,7 @@
                 </div>
                 
                 <div class="event-section" id="eventRehearsalsSection" style="display:none;">
-                    <div class="event-section-title">✓ Confirmed Rehearsals</div>
+                    <div class="event-section-title">Confirmed Rehearsals</div>
                     <div class="event-rehearsal-location" id="eventRehearsalLocation" style="display:none;"></div>
                     <div id="eventRehearsals"></div>
                 </div>
@@ -1498,7 +1480,7 @@
             
             <!-- Rehearsal location -->
             <div class="card" id="rehearsalLocationCard" style="display:none;">
-                <h2>📍 Rehearsal Location</h2>
+                <h2>Rehearsal Location</h2>
                 <div id="musicianRehearsalLocation" style="font-size: 15px; color: #ccc;"></div>
             </div>
             
@@ -1544,8 +1526,8 @@
                     <div class="calendar-header">
                         <span class="calendar-month" id="calendarMonth">February 2025</span>
                         <div class="calendar-nav">
-                            <button onclick="prevMonth()">←</button>
-                            <button onclick="nextMonth()">→</button>
+                            <button onclick="prevMonth()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15,18 9,12 15,6"/></svg></button>
+                            <button onclick="nextMonth()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,6 15,12 9,18"/></svg></button>
                         </div>
                     </div>
                     
@@ -1586,7 +1568,7 @@
                 <div class="custom-time-picker-panel" id="customTimePicker" style="display:none;">
                     <div class="custom-time-picker-header">
                         <span>Add your own time</span>
-                        <span class="custom-time-picker-close" onclick="closeCustomTimePicker()">×</span>
+                        <span class="custom-time-picker-close" onclick="closeCustomTimePicker()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
                     </div>
                     <div class="custom-time-row-list">
                         <input type="date" id="customDateList" class="custom-date-input" min="2024-01-01" max="2099-12-31">
@@ -1626,7 +1608,7 @@
                             <option value="23:00">11 PM</option>
                         </select>
                     </div>
-                    <button class="add-time-btn" onclick="addCustomTimeFromPicker()">✓ Add Time</button>
+                    <button class="add-time-btn" onclick="addCustomTimeFromPicker()">Add Time</button>
                 </div>
                 
                 <!-- Selected times summary -->
@@ -1643,7 +1625,7 @@
             
             <div id="musicianStatus"></div>
             
-            <button class="btn btn-primary" id="submitBtn" onclick="submitAvailability()">Submit Availability →</button>
+            <button class="btn btn-primary" id="submitBtn" onclick="submitAvailability()">Submit Availability</button>
         </div>
         
         <!-- Screen 5: Musician Success -->
@@ -1651,7 +1633,7 @@
             <div class="logo"><img src="/tempo-logo.svg" alt="Tempo" class="logo-img"></div>
             
             <div class="card success-card">
-                <div class="success-icon">✓</div>
+                <div class="success-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg></div>
                 <h1 class="success-title">You're in!</h1>
                 <p class="success-subtitle">The band leader will confirm rehearsal times once everyone responds</p>
                 
@@ -1686,7 +1668,7 @@
                 <div id="standingsList"></div>
             </div>
             
-            <button class="btn btn-secondary" onclick="location.reload()">← Update my availability</button>
+            <button class="btn btn-secondary" onclick="location.reload()">Update my availability</button>
         </div>
     </div>
     

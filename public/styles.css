@@ -204,6 +204,16 @@ body {
 
 .home-option-icon {
     font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    opacity: 0.7;
+}
+
+.home-option-icon svg {
+    stroke: currentColor;
 }
 
 .home-option-text {
@@ -381,6 +391,14 @@ body {
 .empty-state-icon {
     font-size: 48px;
     margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.5;
+}
+
+.empty-state-icon svg {
+    stroke: currentColor;
 }
 
 /* Profile styles */
@@ -392,12 +410,13 @@ body {
 }
 
 .instrument-chip {
-    padding: 12px 8px;
+    padding: 14px 12px;
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 8px;
+    border-radius: 10px;
     color: #888;
     font-size: 13px;
+    font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
     text-align: center;
@@ -416,7 +435,7 @@ body {
 
 .instrument-chip-icon {
     font-size: 20px;
-    display: block;
+    display: none;
     margin-bottom: 4px;
 }
 
@@ -430,10 +449,11 @@ body {
     height: 80px;
     border-radius: 50%;
     background-color: rgba(255,255,255,0.05);
-    border: 3px solid rgba(255,255,255,0.1);
+    border: 2px solid rgba(255,255,255,0.1);
     display: flex;
     align-items: center;
     justify-content: center;
+    color: rgba(255,255,255,0.4);
     margin: 0 auto;
     font-size: 32px;
     color: #444;
@@ -1274,14 +1294,16 @@ select option {
 }
 
 .success-icon {
-    width: 64px;
-    height: 64px;
-    background: rgba(255,255,255,0.06);
+    width: 72px;
+    height: 72px;
+    background: rgba(76, 175, 80, 0.15);
+    border: 2px solid rgba(76, 175, 80, 0.3);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     margin: 0 auto 24px;
+    color: #4CAF50;
     font-size: 28px;
     opacity: 0.6;
 }
@@ -1412,6 +1434,14 @@ select option {
     font-size: 20px;
     width: 28px;
     text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
+}
+
+.menu-item-icon svg {
+    stroke: currentColor;
 }
 
 .menu-item-text {
@@ -1693,7 +1723,7 @@ body.has-header .container {
 }
 
 .avail-cal-day.show-date::after {
-    content: '🎸';
+    content: '';
     position: absolute;
     top: -6px;
     right: -6px;
@@ -3115,7 +3145,7 @@ body.has-header .container {
         }
         
         .event-rehearsal-location::before {
-            content: '📍 ';
+            content: '';
         }
         
         .event-setlist-item {
@@ -3681,6 +3711,18 @@ body.has-header .container {
 
 .tab-btn .tab-icon {
     font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tab-btn .tab-icon svg {
+    stroke: currentColor;
+    opacity: 0.7;
+}
+
+.tab-btn.active .tab-icon svg {
+    opacity: 1;
 }
 
 .tab-btn .tab-label {
@@ -4038,6 +4080,16 @@ body.has-header .container {
 
 .create-sheet-option-icon {
     font-size: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    opacity: 0.7;
+}
+
+.create-sheet-option-icon svg {
+    stroke: currentColor;
 }
 
 .create-sheet-option-text h4 {

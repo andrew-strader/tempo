@@ -97,9 +97,9 @@ function renderSetlist() {
         
         const filesHtml = (song.files || []).map((file, fileIndex) => `
             <div class="song-file">
-                <span class="song-file-icon">${file.type === 'audio' ? '🎵' : '📄'}</span>
+                <span class="song-file-icon">${file.type === 'audio' ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16 10,8" fill="currentColor"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>'}</span>
                 <span class="song-file-name">${file.name}</span>
-                <span class="song-file-remove" onclick="removeSongFile(${index}, ${fileIndex})">×</span>
+                <span class="song-file-remove" onclick="removeSongFile(${index}, ${fileIndex})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
             </div>
         `).join('');
         
@@ -110,7 +110,7 @@ function renderSetlist() {
                     <div class="setlist-title">${song.title}</div>
                     ${song.duration ? `<div class="setlist-duration">${song.duration}</div>` : ''}
                 </div>
-                <span class="setlist-remove" onclick="removeSong(${index})">×</span>
+                <span class="setlist-remove" onclick="removeSong(${index})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
             </div>
             <div class="song-files-section">
                 ${filesHtml}
@@ -262,7 +262,7 @@ function renderUploadedFiles() {
         
         let icon = '📄';
         if (file.type === 'image') icon = '🖼';
-        else if (file.type === 'audio') icon = '🎵';
+        else if (file.type === 'audio') icon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16 10,8" fill="currentColor"/></svg>';
         else if (file.type === 'pdf') icon = '📑';
         
         const statusText = file.status === 'uploading' ? 'Uploading...' : 
@@ -274,7 +274,7 @@ function renderUploadedFiles() {
                 <div class="uploaded-file-name">${file.name}</div>
                 <div class="uploaded-file-size">${file.size} · <span class="uploaded-file-status">${statusText}</span></div>
             </div>
-            <span class="uploaded-file-remove" onclick="removeUploadedFile(${index})">×</span>
+            <span class="uploaded-file-remove" onclick="removeUploadedFile(${index})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
         `;
         container.appendChild(el);
     });
@@ -587,7 +587,7 @@ async function createGig() {
         alert("Error creating gig: " + error.message);
     } finally {
         btn.disabled = false;
-        btn.innerHTML = 'Create Gig →';
+        btn.innerHTML = 'Create Gig';
     }
 }
 
@@ -761,7 +761,7 @@ async function checkBandCalendarStatus(bandId) {
         
         if (connectedCount === 0) {
             helper.textContent = `No members have connected calendars yet`;
-            helper.innerHTML += '<br><a href="#" onclick="showEditProfile(); return false;" style="color: #4a90e2;">Connect yours →</a>';
+            helper.innerHTML += '<br><a href="#" onclick="showEditProfile(); return false;" style="color: #4a90e2;">Connect yours</a>';
         } else {
             helper.textContent = `${connectedCount} of ${totalMembers} members have calendars connected`;
         }
@@ -1038,11 +1038,11 @@ function renderTimeSlots(dateStr) {
                 <div class="avail-time-info">
                     <div class="avail-time-label">
                         ${hourDisplay}:00 ${ampm}
-                        ${slot.isSuggested ? '<span class="avail-time-badge">⭐ Suggested</span>' : ''}
+                        ${slot.isSuggested ? '<span class="avail-time-badge">Suggested</span>' : ''}
                     </div>
                     ${freeText ? `<div class="avail-time-members">${freeText}</div>` : ''}
                 </div>
-                <span class="avail-time-add">${isSelected ? '✓' : '+'}</span>
+                <span class="avail-time-add">${isSelected ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20,6 9,17 4,12"/></svg>' : '+'}</span>
             </div>
         `;
     }
@@ -1289,7 +1289,7 @@ async function loadMyGigs() {
         if (gigs.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-state-icon">🎵</div>
+                    <div class="empty-state-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
                     <p>No gigs yet!</p>
                     <p style="font-size: 13px; margin-top: 8px;">Create your first gig to get started.</p>
                 </div>
@@ -1315,7 +1315,7 @@ async function loadMyGigs() {
             } else if (hasConfirmed) {
                 confirmedHtml = `
                     <div class="my-gig-confirmed">
-                        <div class="my-gig-confirmed-label">✓ Confirmed Rehearsals</div>
+                        <div class="my-gig-confirmed-label">Confirmed Rehearsals</div>
                         ${confirmedTimes.map(slot => {
                             const rDate = new Date(slot.date + 'T00:00:00');
                             const rDateStr = rDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
@@ -1344,9 +1344,9 @@ async function loadMyGigs() {
                             <div class="my-gig-band">${gig.bandName || 'Untitled'}</div>
                             <div class="my-gig-venue">${gig.venue || ''}</div>
                         </div>
-                        <span class="my-gig-role ${gig.role}">${gig.role === 'leader' ? '👑' : '🎵'}</span>
+                        <span class="my-gig-role ${gig.role}">${gig.role === 'leader' ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z"/></svg>' : ''}</span>
                     </div>
-                    <div class="my-gig-date">🎤 Show: ${dateStr}</div>
+                    <div class="my-gig-date">Show: ${dateStr}</div>
                     ${confirmedHtml}
                 </div>
             `;
@@ -1747,9 +1747,9 @@ function renderEditSetlist() {
         
         const filesHtml = (song.files || []).map((file, fileIndex) => `
             <div class="song-file">
-                <span class="song-file-icon">${file.type === 'audio' ? '🎵' : '📄'}</span>
+                <span class="song-file-icon">${file.type === 'audio' ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16 10,8" fill="currentColor"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>'}</span>
                 <span class="song-file-name">${file.name}</span>
-                <span class="song-file-remove" onclick="removeEditSongFile(${index}, ${fileIndex})">×</span>
+                <span class="song-file-remove" onclick="removeEditSongFile(${index}, ${fileIndex})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
             </div>
         `).join('');
         
@@ -1760,7 +1760,7 @@ function renderEditSetlist() {
                     <div class="setlist-title">${song.title}</div>
                     ${song.duration ? `<div class="setlist-duration">${song.duration}</div>` : ''}
                 </div>
-                <span class="setlist-remove" onclick="removeEditSong(${index})">×</span>
+                <span class="setlist-remove" onclick="removeEditSong(${index})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
             </div>
             <div class="song-files-section">
                 ${filesHtml}
@@ -1825,7 +1825,7 @@ function renderEditFiles() {
     window.editUploadedFiles.forEach((file, index) => {
         let icon = '📄';
         if (file.type === 'image') icon = '🖼';
-        else if (file.type === 'audio') icon = '🎵';
+        else if (file.type === 'audio') icon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16 10,8" fill="currentColor"/></svg>';
         else if (file.type === 'pdf') icon = '📑';
         
         const el = document.createElement('div');
@@ -1836,7 +1836,7 @@ function renderEditFiles() {
                 <div class="uploaded-file-name">${file.name}</div>
                 <div class="uploaded-file-size">${file.status === 'existing' ? 'Saved' : file.status === 'uploading' ? 'Uploading...' : 'Ready'}</div>
             </div>
-            <span class="uploaded-file-remove" onclick="removeEditFile(${index})">×</span>
+            <span class="uploaded-file-remove" onclick="removeEditFile(${index})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
         `;
         container.appendChild(el);
     });
@@ -1931,7 +1931,7 @@ function shareConfirmedDetails() {
     
     // Copy the link and show feedback
     navigator.clipboard.writeText(eventUrl).then(() => {
-        btn.innerHTML = '✓ Link Copied!';
+        btn.innerHTML = 'Link Copied!';
         btn.style.background = 'rgba(80, 200, 80, 0.2)';
         btn.style.borderColor = 'rgba(80, 200, 80, 0.4)';
         
@@ -2063,7 +2063,7 @@ async function loadEventCard(gigId) {
                     const el = document.createElement('div');
                     el.className = 'audio-file-player';
                     el.innerHTML = `
-                        <div class="audio-file-name">🎵 ${file.name}</div>
+                        <div class="audio-file-name">${file.name}</div>
                         <audio controls src="${file.url}" crossorigin="anonymous" preload="metadata"></audio>
                         <a class="audio-download-link" href="${file.url}" target="_blank">↓ Download</a>
                     `;
@@ -2227,7 +2227,7 @@ function renderCalendar() {
                 // Show checkmark if all suggested times are selected
                 if (allSuggestedSelected) {
                     classes.push('has-selection');
-                    dayEl.innerHTML = `<span>${day}</span><div class="day-check">✓</div>`;
+                    dayEl.innerHTML = `<span>${day}</span><div class="day-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20,6 9,17 4,12"/></svg></div>`;
                 } else if (dayData.totalResponses > 0) {
                     dayEl.innerHTML = `<span>${day}</span><div class="day-response-count">${dayData.totalResponses}</div>`;
                 } else {
@@ -2236,7 +2236,7 @@ function renderCalendar() {
                 
                 // Also show checkmark if has custom times
                 if (hasCustomSelection && !allSuggestedSelected) {
-                    dayEl.innerHTML = `<span>${day}</span><div class="day-check">✓</div>`;
+                    dayEl.innerHTML = `<span>${day}</span><div class="day-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20,6 9,17 4,12"/></svg></div>`;
                     classes.push('has-selection');
                 }
                 
@@ -2264,7 +2264,7 @@ function renderCalendar() {
                 // Show if user has custom times for this day
                 if (hasCustomSelection) {
                     classes.push('has-selection');
-                    dayEl.innerHTML = `<span>${day}</span><div class="day-check">✓</div>`;
+                    dayEl.innerHTML = `<span>${day}</span><div class="day-check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20,6 9,17 4,12"/></svg></div>`;
                 }
             }
             
@@ -2344,7 +2344,7 @@ function selectDay(dateStr, dateObj) {
                     <div class="time-slot-time">${formatTime(slot.time)}<span class="time-slot-badge">Suggested</span></div>
                     <div class="time-slot-responses">${responseHtml}</div>
                 </div>
-                <div class="time-slot-check">✓</div>
+                <div class="time-slot-check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20,6 9,17 4,12"/></svg></div>
             `;
             suggestedDiv.appendChild(slotEl);
         });
@@ -2360,7 +2360,7 @@ function selectDay(dateStr, dateObj) {
         el.className = 'custom-time-item';
         el.innerHTML = `
             <span class="custom-time-text">${formatTime(custom.startTime)} – ${formatTime(custom.endTime)}</span>
-            <span class="custom-time-remove" onclick="removeCustomTime('${custom.date}', '${custom.startTime}')">×</span>
+            <span class="custom-time-remove" onclick="removeCustomTime('${custom.date}', '${custom.startTime}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
         `;
         customDiv.appendChild(el);
     });
@@ -2496,7 +2496,7 @@ function addCustomTimeFromPicker() {
     
     // Show checkmark feedback briefly
     const btn = document.getElementById('suggestTimeBtn');
-    btn.innerHTML = '✓ Time added!';
+    btn.innerHTML = 'Time added!';
     
     setTimeout(() => {
         closeCustomTimePicker();
@@ -2526,7 +2526,7 @@ function renderAvailabilitySlots() {
         const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
         
         el.innerHTML = `
-            <div class="slot-check">${isSelected ? '✓' : ''}</div>
+            <div class="slot-check">${isSelected ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20,6 9,17 4,12"/></svg>' : ''}</div>
             <div class="slot-info">
                 <div class="slot-datetime">${dayName} · ${formatTime(slot.time)}</div>
                 <div class="slot-responses">${responses.length} ${responses.length === 1 ? 'person' : 'people'} available</div>
@@ -2595,7 +2595,7 @@ function updateSelectedSummary() {
         chip.className = 'selected-chip';
         const dateObj = new Date(t.date + 'T00:00:00');
         const shortDate = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-        chip.innerHTML = `${shortDate} · ${formatTime(t.time)}<span class="selected-chip-remove" onclick="removeSelectedTime('${t.date}', '${t.time}')">×</span>`;
+        chip.innerHTML = `${shortDate} · ${formatTime(t.time)}<span class="selected-chip-remove" onclick="removeSelectedTime('${t.date}', '${t.time}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>`;
         chipsDiv.appendChild(chip);
     });
     
@@ -2605,7 +2605,7 @@ function updateSelectedSummary() {
         chip.className = 'selected-chip';
         const dateObj = new Date(t.date + 'T00:00:00');
         const shortDate = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-        chip.innerHTML = `${shortDate} · ${formatTime(t.startTime)}–${formatTime(t.endTime)}<span class="selected-chip-remove" onclick="removeCustomTime('${t.date}', '${t.startTime}')">×</span>`;
+        chip.innerHTML = `${shortDate} · ${formatTime(t.startTime)}–${formatTime(t.endTime)}<span class="selected-chip-remove" onclick="removeCustomTime('${t.date}', '${t.startTime}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>`;
         chipsDiv.appendChild(chip);
     });
 }
@@ -2740,7 +2740,7 @@ async function submitAvailability() {
         // Check for confirmed rehearsals
         if (gig.confirmedTimes && gig.confirmedTimes.length > 0) {
             document.getElementById('currentStandings').innerHTML = `
-                <h2>✓ Confirmed Rehearsals</h2>
+                <h2>Confirmed Rehearsals</h2>
                 <p class="standings-note">These rehearsals have been confirmed by the band leader.</p>
                 <div id="confirmedRehearsals"></div>
             `;
@@ -2751,7 +2751,7 @@ async function submitAvailability() {
                 el.innerHTML = `
                     <div class="standing-header">
                         <span class="standing-datetime">${formatDate(slot.date)} · ${formatTime(slot.time)}</span>
-                        <span class="standing-count" style="color:#50c850;">✓ Confirmed</span>
+                        <span class="standing-count" style="color:#50c850;">Confirmed</span>
                     </div>
                 `;
                 confirmedDiv.appendChild(el);
