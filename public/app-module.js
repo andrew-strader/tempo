@@ -2755,11 +2755,18 @@ window.switchTab = switchTab;
 
 // Show discovery home screen
 function showDiscoveryHome() {
-    hideAllScreens();
+    // Hide all screens
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('screen0').classList.add('active');
     showGlobalHeader();
     document.body.classList.remove('hide-tab-bar');
-    document.getElementById('bottomTabBar').style.display = 'flex';
+    const tabBar = document.getElementById('bottomTabBar');
+    if (tabBar) tabBar.style.display = 'flex';
+    
+    // Clear URL
+    window.history.replaceState({}, '', '/');
+    
+    // Load the feed
     loadDiscoveryFeed();
 }
 window.showDiscoveryHome = showDiscoveryHome;
