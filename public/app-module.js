@@ -2858,10 +2858,15 @@ window.dismissWhatsNew = dismissWhatsNew;
 
 // Tab navigation
 function switchTab(tab) {
+    // Close create sheet if open (unless we're opening it)
+    if (tab !== 'create') {
+        closeCreateSheet();
+    }
+
     // Update active tab button
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
-    
+
     // Handle tab action
     switch(tab) {
         case 'home':
