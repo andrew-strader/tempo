@@ -4503,15 +4503,16 @@ body.hide-tab-bar .container.has-tab-bar {
 
 /* Collapsible Sections */
 .collapsible-section {
-    margin: 16px 0;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    margin: 12px 0;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 12px;
     overflow: hidden;
 }
 
 .collapsible-section summary {
-    padding: 16px;
-    background: rgba(255, 255, 255, 0.03);
+    padding: 16px 20px;
+    background: transparent;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -4519,6 +4520,7 @@ body.hide-tab-bar .container.has-tab-bar {
     list-style: none;
     font-weight: 500;
     color: #fff;
+    font-size: 15px;
 }
 
 .collapsible-section summary::-webkit-details-marker {
@@ -4529,8 +4531,8 @@ body.hide-tab-bar .container.has-tab-bar {
     content: '';
     width: 8px;
     height: 8px;
-    border-right: 2px solid #888;
-    border-bottom: 2px solid #888;
+    border-right: 2px solid #666;
+    border-bottom: 2px solid #666;
     transform: rotate(-45deg);
     transition: transform 0.2s;
 }
@@ -4539,8 +4541,93 @@ body.hide-tab-bar .container.has-tab-bar {
     transform: rotate(45deg);
 }
 
-.collapsible-content {
-    padding: 16px;
+.collapsible-section[open] summary {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.collapsible-content,
+.details-content {
+    padding: 16px 20px;
+}
+
+/* Rehearsal Form Elements */
+.add-song-row,
+.add-email-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.add-song-row input[type="text"],
+.add-email-row input[type="email"] {
+    margin-bottom: 0;
+}
+
+.add-song-row input:first-child,
+.add-email-row input:first-child {
+    flex: 1;
+}
+
+.duration-input {
+    width: 70px !important;
+    flex: none !important;
+    text-align: center;
+}
+
+.add-song-btn,
+.add-email-btn {
+    min-width: 44px;
+    height: 44px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #888;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px;
+}
+
+.add-song-btn:hover,
+.add-email-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.file-upload-area {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 24px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 12px;
+}
+
+.file-upload-area:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.upload-text {
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 4px;
+}
+
+.upload-subtext {
+    font-size: 12px;
+    color: #555;
+}
+
+.helper-text {
+    font-size: 13px;
+    color: #666;
+    margin-top: 6px;
+    margin-bottom: 12px;
 }
 
 /* Type Badges */
