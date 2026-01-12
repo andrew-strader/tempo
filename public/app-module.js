@@ -228,7 +228,17 @@ onAuthStateChanged(auth, async (user) => {
         viewMusicianProfile(musicianId);
     } else if (user && window.pendingShowGigs) {
         window.pendingShowGigs = false;
-        showMyGigs();
+        showMySchedule();
+    } else if (user && window.pendingShowSchedule) {
+        window.pendingShowSchedule = false;
+        showMySchedule();
+    } else if (user && window.pendingNewRehearsal) {
+        window.pendingNewRehearsal = false;
+        showCreateRehearsal();
+    } else if (user && window.pendingRehearsalDetail) {
+        const rId = window.pendingRehearsalDetail;
+        window.pendingRehearsalDetail = null;
+        showRehearsalDetail(rId);
     } else if (user && window.pendingBandDetail) {
         const bandId = window.pendingBandDetail;
         window.pendingBandDetail = false;
@@ -297,8 +307,8 @@ window.addEventListener('popstate', function(event) {
         loadDiscoveryFeed();
     } else if (path === '/bands') {
         if (window.currentUser) showMyBands();
-    } else if (path === '/gigs') {
-        if (window.currentUser) showMyGigs();
+    } else if (path === '/gigs' || path === '/schedule') {
+        if (window.currentUser) showMySchedule();
     } else if (path === '/profile') {
         if (window.currentUser) viewMusicianProfile(window.currentUser.uid);
     } else if (path === '/edit-profile') {
@@ -316,6 +326,11 @@ window.addEventListener('popstate', function(event) {
     } else if (path.match(/^\/b\/([a-zA-Z0-9]+)$/)) {
         const bandId = path.split('/')[2];
         showBandInviteLanding(bandId);
+    } else if (path === '/new-rehearsal') {
+        if (window.currentUser) showCreateRehearsal();
+    } else if (path.match(/^\/r\/([a-zA-Z0-9]+)$/)) {
+        const rehearsalId = path.split('/')[2];
+        showRehearsalDetail(rehearsalId);
     }
 });
 
@@ -339,7 +354,12 @@ function goHome() {
 
 function goToMyGigs() {
     toggleMenu();
-    showMyGigs();
+    showMySchedule();
+}
+
+function goToMySchedule() {
+    toggleMenu();
+    showMySchedule();
 }
 
 function goToMyBands() {
@@ -408,6 +428,7 @@ function signOutFromMenu() {
 window.toggleMenu = toggleMenu;
 window.goHome = goHome;
 window.goToMyGigs = goToMyGigs;
+window.goToMySchedule = goToMySchedule;
 window.goToMyBands = goToMyBands;
 window.goToHelp = goToHelp;
 window.signInFromMenu = signInFromMenu;
@@ -2549,8 +2570,18 @@ const isEditProfilePage = window.location.pathname === '/edit-profile';
 const musicianMatch = window.location.pathname.match(/^\/musician\/([a-zA-Z0-9]+)$/);
 const musicianId = musicianMatch ? musicianMatch[1] : null;
 
-// Check for /gigs path
+// Check for /gigs path (legacy - redirect to schedule)
 const isGigsPage = window.location.pathname === '/gigs';
+
+// Check for /schedule path
+const isSchedulePage = window.location.pathname === '/schedule';
+
+// Check for /new-rehearsal path
+const isNewRehearsalPage = window.location.pathname === '/new-rehearsal';
+
+// Check for /r/{rehearsalId} path
+const rehearsalMatch = window.location.pathname.match(/^\/r\/([a-zA-Z0-9]+)$/);
+const rehearsalId = rehearsalMatch ? rehearsalMatch[1] : null;
 
 // Route to appropriate view
 if (isPrivacyPage) {
@@ -2571,9 +2602,15 @@ if (isPrivacyPage) {
 } else if (musicianId) {
     // Will be handled after auth - view other musician
     window.pendingViewMusician = musicianId;
-} else if (isGigsPage) {
+} else if (isGigsPage || isSchedulePage) {
+    // Will be handled after auth - both go to schedule now
+    window.pendingShowSchedule = true;
+} else if (isNewRehearsalPage) {
     // Will be handled after auth
-    window.pendingShowGigs = true;
+    window.pendingNewRehearsal = true;
+} else if (rehearsalId) {
+    // Will be handled after auth
+    window.pendingRehearsalDetail = rehearsalId;
 } else if (bandDetailId) {
     // Will be handled after auth
     window.pendingBandDetail = bandDetailId;
@@ -2872,8 +2909,8 @@ function switchTab(tab) {
         case 'home':
             showDiscoveryHome();
             break;
-        case 'gigs':
-            showMyGigs();
+        case 'schedule':
+            showMySchedule();
             break;
         case 'bands':
             showMyBands();
@@ -3228,3 +3265,993 @@ function renderSocialLinks(links) {
     return html;
 }
 window.renderSocialLinks = renderSocialLinks;
+
+// ============================================
+// REHEARSAL FUNCTIONS
+// ============================================
+
+// Current rehearsal state
+window.currentRehearsalInviteMode = 'band';
+window.currentRehearsalInvitees = [];
+window.currentRehearsalSetlist = [];
+window.currentScheduleFilter = 'all';
+
+// Show Create Rehearsal screen
+async function showCreateRehearsal() {
+    if (!window.currentUser) {
+        const user = await window.signInWithGoogle();
+        if (!user) return;
+    }
+
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screenCreateRehearsal').classList.add('active');
+
+    // Update URL
+    window.history.pushState({}, '', '/new-rehearsal');
+
+    // Hide tab bar
+    document.body.classList.add('hide-tab-bar');
+
+    // Reset form state
+    window.currentRehearsalInviteMode = 'band';
+    window.currentRehearsalInvitees = [];
+    window.currentRehearsalSetlist = [];
+
+    // Reset form fields
+    document.getElementById('rehearsalName').value = '';
+    document.getElementById('rehearsalDate').value = '';
+    document.getElementById('rehearsalStartTime').value = '';
+    document.getElementById('rehearsalEndTime').value = '';
+    document.getElementById('rehearsalLocation').value = '';
+    document.getElementById('rehearsalNotes').value = '';
+    document.getElementById('rehearsalRecurring').checked = false;
+    document.getElementById('recurringOptions').style.display = 'none';
+
+    // Update invite mode buttons
+    setInviteMode('band');
+
+    // Load user's bands for the dropdown
+    await loadRehearsalBandDropdown();
+
+    // Load user's gigs for linked gig dropdown
+    await loadLinkedGigDropdown();
+}
+window.showCreateRehearsal = showCreateRehearsal;
+
+// Load bands dropdown for rehearsal
+async function loadRehearsalBandDropdown() {
+    const select = document.getElementById('rehearsalBand');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">Select a band...</option>';
+
+    try {
+        // Query bands where user is a member
+        const memberQuery = query(
+            collection(db, "bandMembers"),
+            where("memberId", "==", window.currentUser.uid)
+        );
+        const memberSnap = await getDocs(memberQuery);
+
+        const bandIds = [];
+        memberSnap.forEach(doc => {
+            bandIds.push(doc.data().bandId);
+        });
+
+        // Also get bands where user is leader
+        const leaderQuery = query(
+            collection(db, "bands"),
+            where("leaderId", "==", window.currentUser.uid)
+        );
+        const leaderSnap = await getDocs(leaderQuery);
+
+        leaderSnap.forEach(doc => {
+            if (!bandIds.includes(doc.id)) {
+                bandIds.push(doc.id);
+            }
+        });
+
+        // Fetch band details
+        for (const bandId of bandIds) {
+            const bandDoc = await getDoc(doc(db, "bands", bandId));
+            if (bandDoc.exists()) {
+                const band = bandDoc.data();
+                select.innerHTML += `<option value="${bandId}">${band.name}</option>`;
+            }
+        }
+    } catch (error) {
+        console.error("Error loading bands:", error);
+    }
+}
+
+// Load linked gig dropdown
+async function loadLinkedGigDropdown() {
+    const select = document.getElementById('rehearsalLinkedGig');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">None</option>';
+
+    try {
+        // Query upcoming gigs where user is creator
+        const gigsQuery = query(
+            collection(db, "gigs"),
+            where("creatorId", "==", window.currentUser.uid)
+        );
+        const gigsSnap = await getDocs(gigsQuery);
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const upcomingGigs = [];
+        gigsSnap.forEach(doc => {
+            const gig = { id: doc.id, ...doc.data() };
+            if (new Date(gig.showDate + 'T00:00:00') >= today) {
+                upcomingGigs.push(gig);
+            }
+        });
+
+        // Sort by date
+        upcomingGigs.sort((a, b) => new Date(a.showDate) - new Date(b.showDate));
+
+        upcomingGigs.forEach(gig => {
+            const date = new Date(gig.showDate + 'T00:00:00');
+            const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            select.innerHTML += `<option value="${gig.id}">${gig.bandName || gig.venue} - ${dateStr}</option>`;
+        });
+    } catch (error) {
+        console.error("Error loading gigs:", error);
+    }
+}
+
+// Set invite mode (band or individuals)
+function setInviteMode(mode) {
+    window.currentRehearsalInviteMode = mode;
+
+    // Update buttons
+    document.querySelectorAll('.invite-mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+    });
+
+    // Show/hide sections
+    document.getElementById('bandInviteSection').style.display = mode === 'band' ? 'block' : 'none';
+    document.getElementById('individualInviteSection').style.display = mode === 'individuals' ? 'block' : 'none';
+}
+window.setInviteMode = setInviteMode;
+
+// Handle band selection - load band members
+async function onRehearsalBandSelected() {
+    const bandId = document.getElementById('rehearsalBand').value;
+    if (!bandId) return;
+
+    // Clear individual invitees when band is selected
+    window.currentRehearsalInvitees = [];
+    renderInviteesList();
+}
+window.onRehearsalBandSelected = onRehearsalBandSelected;
+
+// Add individual invitee by email
+function addRehearsalInvitee() {
+    const input = document.getElementById('inviteeEmail');
+    const email = input.value.trim();
+
+    if (!email) return;
+
+    // Basic email validation
+    if (!email.includes('@')) {
+        alert('Please enter a valid email address');
+        return;
+    }
+
+    // Check for duplicates
+    if (window.currentRehearsalInvitees.includes(email)) {
+        alert('This email is already added');
+        return;
+    }
+
+    window.currentRehearsalInvitees.push(email);
+    input.value = '';
+    renderInviteesList();
+}
+window.addRehearsalInvitee = addRehearsalInvitee;
+
+// Remove invitee
+function removeRehearsalInvitee(index) {
+    window.currentRehearsalInvitees.splice(index, 1);
+    renderInviteesList();
+}
+window.removeRehearsalInvitee = removeRehearsalInvitee;
+
+// Render invitees list
+function renderInviteesList() {
+    const container = document.getElementById('inviteesList');
+    if (!container) return;
+
+    if (window.currentRehearsalInvitees.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = window.currentRehearsalInvitees.map((email, index) => `
+        <div class="invitee-chip">
+            <span>${email}</span>
+            <button class="invitee-remove" onclick="removeRehearsalInvitee(${index})">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+    `).join('');
+}
+
+// Toggle recurring options
+function toggleRecurring() {
+    const isRecurring = document.getElementById('rehearsalRecurring').checked;
+    document.getElementById('recurringOptions').style.display = isRecurring ? 'block' : 'none';
+}
+window.toggleRecurring = toggleRecurring;
+
+// Add song to setlist
+function addRehearsalSong() {
+    const titleInput = document.getElementById('songTitle');
+    const durationInput = document.getElementById('songDuration');
+
+    const title = titleInput.value.trim();
+    const duration = durationInput.value.trim();
+
+    if (!title) {
+        alert('Please enter a song title');
+        return;
+    }
+
+    window.currentRehearsalSetlist.push({ title, duration, files: [] });
+    titleInput.value = '';
+    durationInput.value = '';
+    renderRehearsalSetlist();
+}
+window.addRehearsalSong = addRehearsalSong;
+
+// Remove song from setlist
+function removeRehearsalSong(index) {
+    window.currentRehearsalSetlist.splice(index, 1);
+    renderRehearsalSetlist();
+}
+window.removeRehearsalSong = removeRehearsalSong;
+
+// Render setlist
+function renderRehearsalSetlist() {
+    const container = document.getElementById('rehearsalSetlistPreview');
+    if (!container) return;
+
+    if (window.currentRehearsalSetlist.length === 0) {
+        container.innerHTML = '<p style="color: #888; font-size: 14px;">No songs added yet</p>';
+        return;
+    }
+
+    container.innerHTML = window.currentRehearsalSetlist.map((song, index) => `
+        <div class="setlist-song">
+            <div class="setlist-song-number">${index + 1}</div>
+            <div class="setlist-song-info">
+                <div class="setlist-song-title">${song.title}</div>
+                ${song.duration ? `<div class="setlist-song-duration">${song.duration}</div>` : ''}
+            </div>
+            <button class="invitee-remove" onclick="removeRehearsalSong(${index})">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+    `).join('');
+}
+
+// Create rehearsal
+async function createRehearsal() {
+    const name = document.getElementById('rehearsalName').value.trim();
+    const date = document.getElementById('rehearsalDate').value;
+    const startTime = document.getElementById('rehearsalStartTime').value;
+    const endTime = document.getElementById('rehearsalEndTime').value;
+    const location = document.getElementById('rehearsalLocation').value.trim();
+    const notes = document.getElementById('rehearsalNotes').value.trim();
+    const linkedGigId = document.getElementById('rehearsalLinkedGig').value;
+    const isRecurring = document.getElementById('rehearsalRecurring').checked;
+
+    // Validation
+    if (!name) {
+        alert('Please enter a rehearsal name');
+        return;
+    }
+    if (!date) {
+        alert('Please select a date');
+        return;
+    }
+    if (!startTime) {
+        alert('Please select a start time');
+        return;
+    }
+
+    // Get band info if inviting a band
+    let bandId = null;
+    let bandName = null;
+    let invitedMembers = [];
+
+    if (window.currentRehearsalInviteMode === 'band') {
+        bandId = document.getElementById('rehearsalBand').value;
+        if (bandId) {
+            const bandDoc = await getDoc(doc(db, "bands", bandId));
+            if (bandDoc.exists()) {
+                bandName = bandDoc.data().name;
+            }
+
+            // Get band members
+            const membersQuery = query(
+                collection(db, "bandMembers"),
+                where("bandId", "==", bandId)
+            );
+            const membersSnap = await getDocs(membersQuery);
+            membersSnap.forEach(doc => {
+                invitedMembers.push({
+                    odId: doc.data().memberId,
+                    email: doc.data().email,
+                    status: 'pending'
+                });
+            });
+        }
+    } else {
+        // Individual invites
+        invitedMembers = window.currentRehearsalInvitees.map(email => ({
+            odId: null,
+            email: email,
+            status: 'pending'
+        }));
+    }
+
+    // Create rehearsal document
+    const rehearsalData = {
+        name,
+        date,
+        startTime,
+        endTime: endTime || null,
+        location: location || null,
+        notes: notes || null,
+        bandId: bandId || null,
+        bandName: bandName || null,
+        linkedGigId: linkedGigId || null,
+        creatorId: window.currentUser.uid,
+        creatorEmail: window.currentUser.email,
+        invitedMembers,
+        setlist: window.currentRehearsalSetlist,
+        playlist: [],
+        files: [],
+        isRecurring,
+        parentRehearsalId: null,
+        createdAt: serverTimestamp()
+    };
+
+    try {
+        // Add to Firestore
+        const docRef = await addDoc(collection(db, "rehearsals"), rehearsalData);
+
+        // Handle recurring rehearsals
+        if (isRecurring) {
+            const frequency = document.getElementById('recurringFrequency').value;
+            const count = parseInt(document.getElementById('recurringCount').value) || 4;
+            await createRecurringRehearsals(docRef.id, rehearsalData, frequency, count);
+        }
+
+        // Send email notifications
+        await sendRehearsalInviteEmails(docRef.id, rehearsalData);
+
+        alert('Rehearsal created!');
+        showMySchedule();
+    } catch (error) {
+        console.error("Error creating rehearsal:", error);
+        alert('Error creating rehearsal: ' + error.message);
+    }
+}
+window.createRehearsal = createRehearsal;
+
+// Create recurring rehearsal instances
+async function createRecurringRehearsals(parentId, baseData, frequency, count) {
+    const startDate = new Date(baseData.date + 'T00:00:00');
+    const dayIncrement = frequency === 'weekly' ? 7 : 14;
+
+    for (let i = 1; i < count; i++) {
+        const newDate = new Date(startDate);
+        newDate.setDate(newDate.getDate() + (dayIncrement * i));
+
+        const recurringData = {
+            ...baseData,
+            date: newDate.toISOString().split('T')[0],
+            parentRehearsalId: parentId,
+            isRecurring: false,
+            createdAt: serverTimestamp()
+        };
+
+        // Reset RSVP statuses for new instance
+        recurringData.invitedMembers = recurringData.invitedMembers.map(m => ({
+            ...m,
+            status: 'pending'
+        }));
+
+        await addDoc(collection(db, "rehearsals"), recurringData);
+    }
+}
+
+// Send email notifications for rehearsal
+async function sendRehearsalInviteEmails(rehearsalId, rehearsalData) {
+    const rehearsalUrl = `https://tempocal.app/r/${rehearsalId}`;
+    const dateStr = new Date(rehearsalData.date + 'T00:00:00').toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric'
+    });
+    const timeStr = new Date('2000-01-01T' + rehearsalData.startTime).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit'
+    });
+
+    for (const member of rehearsalData.invitedMembers) {
+        if (!member.email) continue;
+
+        try {
+            await addDoc(collection(db, "mail"), {
+                to: member.email,
+                message: {
+                    subject: `Rehearsal Invite: ${rehearsalData.name}`,
+                    html: `
+                        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                            <h2 style="color: #333;">You're invited to a rehearsal!</h2>
+                            <div style="background: #f5f5f5; border-radius: 12px; padding: 20px; margin: 20px 0;">
+                                <h3 style="margin: 0 0 10px 0; color: #333;">${rehearsalData.name}</h3>
+                                ${rehearsalData.bandName ? `<p style="margin: 0 0 5px 0; color: #666;">Band: ${rehearsalData.bandName}</p>` : ''}
+                                <p style="margin: 0 0 5px 0; color: #666;">${dateStr} at ${timeStr}</p>
+                                ${rehearsalData.location ? `<p style="margin: 0; color: #666;">Location: ${rehearsalData.location}</p>` : ''}
+                            </div>
+                            <a href="${rehearsalUrl}" style="display: inline-block; background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 500;">View Rehearsal & RSVP</a>
+                            <p style="color: #888; font-size: 14px; margin-top: 20px;">Sent via Tempo</p>
+                        </div>
+                    `
+                }
+            });
+        } catch (error) {
+            console.error("Error sending email to", member.email, error);
+        }
+    }
+}
+
+// Show My Schedule screen
+async function showMySchedule() {
+    if (!window.currentUser) {
+        const user = await window.signInWithGoogle();
+        if (!user) return;
+    }
+
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screenMySchedule').classList.add('active');
+
+    // Update URL
+    window.history.pushState({}, '', '/schedule');
+
+    // Update tab bar
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('tabSchedule').classList.add('active');
+    document.body.classList.remove('hide-tab-bar');
+    if (window.showTabBar) window.showTabBar();
+
+    await loadMySchedule();
+}
+window.showMySchedule = showMySchedule;
+
+// Filter schedule
+function filterSchedule(filter) {
+    window.currentScheduleFilter = filter;
+
+    // Update filter buttons
+    document.querySelectorAll('.schedule-filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === filter);
+    });
+
+    loadMySchedule();
+}
+window.filterSchedule = filterSchedule;
+
+// Load schedule items (gigs + rehearsals)
+async function loadMySchedule() {
+    const container = document.getElementById('myScheduleList');
+    if (!container) return;
+
+    container.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+
+    try {
+        const userId = window.currentUser.uid;
+        const userEmail = window.currentUser.email;
+        const filter = window.currentScheduleFilter || 'all';
+
+        let items = [];
+
+        // Load gigs if filter is 'all' or 'gigs'
+        if (filter === 'all' || filter === 'gigs') {
+            // Gigs where user is creator
+            const createdGigsQuery = query(
+                collection(db, "gigs"),
+                where("creatorId", "==", userId)
+            );
+            const createdGigsSnap = await getDocs(createdGigsQuery);
+
+            createdGigsSnap.forEach(doc => {
+                items.push({ id: doc.id, ...doc.data(), type: 'gig', role: 'leader' });
+            });
+
+            // Gigs where user responded
+            const respondedGigsQuery = query(
+                collection(db, "gigs"),
+                where("responderIds", "array-contains", userId)
+            );
+            const respondedGigsSnap = await getDocs(respondedGigsQuery);
+
+            respondedGigsSnap.forEach(doc => {
+                if (!items.find(i => i.id === doc.id)) {
+                    items.push({ id: doc.id, ...doc.data(), type: 'gig', role: 'musician' });
+                }
+            });
+        }
+
+        // Load rehearsals if filter is 'all' or 'rehearsals'
+        if (filter === 'all' || filter === 'rehearsals') {
+            // Rehearsals where user is creator
+            const createdRehearsalsQuery = query(
+                collection(db, "rehearsals"),
+                where("creatorId", "==", userId)
+            );
+            const createdRehearsalsSnap = await getDocs(createdRehearsalsQuery);
+
+            createdRehearsalsSnap.forEach(doc => {
+                items.push({ id: doc.id, ...doc.data(), type: 'rehearsal', role: 'leader' });
+            });
+
+            // Rehearsals where user is invited (by email)
+            // Note: Firestore doesn't support array-contains on nested fields,
+            // so we'll query by bandId for band members
+
+            // Get user's bands
+            const memberQuery = query(
+                collection(db, "bandMembers"),
+                where("memberId", "==", userId)
+            );
+            const memberSnap = await getDocs(memberQuery);
+
+            const bandIds = [];
+            memberSnap.forEach(doc => {
+                bandIds.push(doc.data().bandId);
+            });
+
+            // Query rehearsals for each band
+            for (const bandId of bandIds) {
+                const bandRehearsalsQuery = query(
+                    collection(db, "rehearsals"),
+                    where("bandId", "==", bandId)
+                );
+                const bandRehearsalsSnap = await getDocs(bandRehearsalsQuery);
+
+                bandRehearsalsSnap.forEach(doc => {
+                    if (!items.find(i => i.id === doc.id)) {
+                        items.push({ id: doc.id, ...doc.data(), type: 'rehearsal', role: 'member' });
+                    }
+                });
+            }
+        }
+
+        // Separate upcoming and past
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const upcomingItems = items.filter(item => {
+            const dateField = item.type === 'gig' ? item.showDate : item.date;
+            return new Date(dateField + 'T00:00:00') >= today;
+        });
+
+        const pastItems = items.filter(item => {
+            const dateField = item.type === 'gig' ? item.showDate : item.date;
+            return new Date(dateField + 'T00:00:00') < today;
+        });
+
+        // Sort
+        upcomingItems.sort((a, b) => {
+            const dateA = a.type === 'gig' ? a.showDate : a.date;
+            const dateB = b.type === 'gig' ? b.showDate : b.date;
+            return new Date(dateA) - new Date(dateB);
+        });
+
+        pastItems.sort((a, b) => {
+            const dateA = a.type === 'gig' ? a.showDate : a.date;
+            const dateB = b.type === 'gig' ? b.showDate : b.date;
+            return new Date(dateB) - new Date(dateA);
+        });
+
+        if (items.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
+                    <p>No ${filter === 'all' ? 'events' : filter} yet!</p>
+                    <p style="font-size: 13px; margin-top: 8px;">Create your first ${filter === 'rehearsals' ? 'rehearsal' : 'gig'} to get started.</p>
+                </div>
+            `;
+            return;
+        }
+
+        let html = '';
+
+        if (upcomingItems.length > 0) {
+            html += '<h3 class="section-title">Upcoming</h3>';
+            upcomingItems.forEach(item => {
+                html += renderScheduleItem(item, false);
+            });
+        }
+
+        if (pastItems.length > 0) {
+            html += '<h3 class="section-title" style="margin-top: 24px;">Past</h3>';
+            pastItems.forEach(item => {
+                html += renderScheduleItem(item, true);
+            });
+        }
+
+        container.innerHTML = html;
+    } catch (error) {
+        console.error("Error loading schedule:", error);
+        container.innerHTML = '<div class="empty-state"><p>Error loading schedule</p></div>';
+    }
+}
+
+// Render a schedule item card
+function renderScheduleItem(item, isPast) {
+    const isGig = item.type === 'gig';
+    const dateField = isGig ? item.showDate : item.date;
+    const dateObj = new Date(dateField + 'T00:00:00');
+    const dateStr = dateObj.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
+    });
+
+    const typeIcon = isGig
+        ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>'
+        : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>';
+
+    const title = isGig ? (item.bandName || item.venue || 'Untitled Gig') : item.name;
+    const subtitle = isGig ? item.venue : (item.bandName || item.location || '');
+
+    let timeStr = '';
+    if (!isGig && item.startTime) {
+        timeStr = new Date('2000-01-01T' + item.startTime).toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit'
+        });
+    }
+
+    const onclick = isGig ? `openGig('${item.id}', '${item.role}')` : `showRehearsalDetail('${item.id}')`;
+
+    return `
+        <div class="schedule-item ${isPast ? 'past' : ''}" onclick="${onclick}">
+            <div class="schedule-item-header">
+                <h4 class="schedule-item-title">${title}</h4>
+                <span class="type-badge ${item.type}">${typeIcon} ${isGig ? 'Gig' : 'Rehearsal'}</span>
+            </div>
+            <div class="schedule-item-meta">
+                <span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    ${dateStr}${timeStr ? ' at ' + timeStr : ''}
+                </span>
+                ${subtitle ? `
+                    <span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                        ${subtitle}
+                    </span>
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
+
+// Show rehearsal detail screen
+async function showRehearsalDetail(rehearsalId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screenRehearsalDetail').classList.add('active');
+
+    // Update URL
+    window.history.pushState({}, '', '/r/' + rehearsalId);
+
+    // Hide tab bar
+    document.body.classList.add('hide-tab-bar');
+
+    // Store current rehearsal ID
+    window.currentRehearsalId = rehearsalId;
+
+    try {
+        const rehearsalDoc = await getDoc(doc(db, "rehearsals", rehearsalId));
+        if (!rehearsalDoc.exists()) {
+            alert('Rehearsal not found');
+            showMySchedule();
+            return;
+        }
+
+        const rehearsal = { id: rehearsalDoc.id, ...rehearsalDoc.data() };
+        window.currentRehearsalData = rehearsal;
+
+        // Update UI elements
+        document.getElementById('rehearsalDetailTitle').textContent = rehearsal.name;
+        document.getElementById('rehearsalDetailBand').textContent = rehearsal.bandName || '';
+        document.getElementById('rehearsalDetailBand').style.display = rehearsal.bandName ? 'block' : 'none';
+
+        // Format date and time
+        const dateObj = new Date(rehearsal.date + 'T00:00:00');
+        const dateStr = dateObj.toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric'
+        });
+
+        let timeStr = '';
+        if (rehearsal.startTime) {
+            const startTimeStr = new Date('2000-01-01T' + rehearsal.startTime).toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit'
+            });
+            timeStr = startTimeStr;
+            if (rehearsal.endTime) {
+                const endTimeStr = new Date('2000-01-01T' + rehearsal.endTime).toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit'
+                });
+                timeStr += ' - ' + endTimeStr;
+            }
+        }
+
+        document.getElementById('rehearsalDetailDate').textContent = dateStr;
+        document.getElementById('rehearsalDetailTime').textContent = timeStr;
+
+        // Location
+        const locationEl = document.getElementById('rehearsalDetailLocation');
+        if (rehearsal.location) {
+            locationEl.innerHTML = `
+                <div class="rehearsal-location-card">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    <span>${rehearsal.location}</span>
+                </div>
+            `;
+            locationEl.style.display = 'block';
+        } else {
+            locationEl.style.display = 'none';
+        }
+
+        // Notes
+        const notesEl = document.getElementById('rehearsalDetailNotes');
+        if (rehearsal.notes) {
+            notesEl.innerHTML = `<div class="rehearsal-notes">${rehearsal.notes}</div>`;
+            notesEl.style.display = 'block';
+        } else {
+            notesEl.style.display = 'none';
+        }
+
+        // Linked gig
+        const linkedGigEl = document.getElementById('rehearsalDetailLinkedGig');
+        if (rehearsal.linkedGigId) {
+            const gigDoc = await getDoc(doc(db, "gigs", rehearsal.linkedGigId));
+            if (gigDoc.exists()) {
+                const gig = gigDoc.data();
+                const gigDate = new Date(gig.showDate + 'T00:00:00').toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric'
+                });
+                linkedGigEl.innerHTML = `
+                    <h4>Linked Gig</h4>
+                    <div class="linked-gig-card" onclick="viewLinkedGig('${rehearsal.linkedGigId}')">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                        <div class="linked-gig-info">
+                            <h5>${gig.bandName || gig.venue}</h5>
+                            <span>${gigDate} · ${gig.venue || ''}</span>
+                        </div>
+                    </div>
+                `;
+                linkedGigEl.style.display = 'block';
+            } else {
+                linkedGigEl.style.display = 'none';
+            }
+        } else {
+            linkedGigEl.style.display = 'none';
+        }
+
+        // RSVP buttons - check current user's status
+        updateRsvpButtons(rehearsal);
+
+        // RSVP responses
+        renderRsvpResponses(rehearsal);
+
+        // Setlist
+        const setlistEl = document.getElementById('rehearsalDetailSetlist');
+        if (rehearsal.setlist && rehearsal.setlist.length > 0) {
+            let setlistHtml = '<h4>Setlist</h4><div class="setlist-display">';
+            rehearsal.setlist.forEach((song, index) => {
+                setlistHtml += `
+                    <div class="setlist-song">
+                        <div class="setlist-song-number">${index + 1}</div>
+                        <div class="setlist-song-info">
+                            <div class="setlist-song-title">${song.title}</div>
+                            ${song.duration ? `<div class="setlist-song-duration">${song.duration}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            setlistHtml += '</div>';
+            setlistEl.innerHTML = setlistHtml;
+            setlistEl.style.display = 'block';
+        } else {
+            setlistEl.style.display = 'none';
+        }
+
+    } catch (error) {
+        console.error("Error loading rehearsal:", error);
+        alert('Error loading rehearsal');
+        showMySchedule();
+    }
+}
+window.showRehearsalDetail = showRehearsalDetail;
+
+// Update RSVP buttons based on current user's status
+function updateRsvpButtons(rehearsal) {
+    const userId = window.currentUser?.uid;
+    const userEmail = window.currentUser?.email;
+
+    // Find current user's RSVP status
+    let currentStatus = 'pending';
+    if (rehearsal.invitedMembers) {
+        const member = rehearsal.invitedMembers.find(m =>
+            m.odId === userId || m.email === userEmail
+        );
+        if (member) {
+            currentStatus = member.status || 'pending';
+        }
+    }
+
+    // Update button states
+    document.querySelectorAll('.rsvp-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.status === currentStatus);
+    });
+}
+
+// Render RSVP responses
+function renderRsvpResponses(rehearsal) {
+    const container = document.getElementById('rehearsalDetailResponses');
+    if (!container) return;
+
+    if (!rehearsal.invitedMembers || rehearsal.invitedMembers.length === 0) {
+        container.style.display = 'none';
+        return;
+    }
+
+    const going = rehearsal.invitedMembers.filter(m => m.status === 'going');
+    const maybe = rehearsal.invitedMembers.filter(m => m.status === 'maybe');
+    const cant = rehearsal.invitedMembers.filter(m => m.status === 'cant');
+    const pending = rehearsal.invitedMembers.filter(m => !m.status || m.status === 'pending');
+
+    let html = '<h4>Responses</h4>';
+
+    if (going.length > 0) {
+        html += `
+            <div class="response-group going">
+                <div class="response-group-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                    Going (${going.length})
+                </div>
+                <div class="response-avatars">
+                    ${going.map(m => `<div class="response-avatar" title="${m.email}">${(m.email || '?')[0].toUpperCase()}</div>`).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    if (maybe.length > 0) {
+        html += `
+            <div class="response-group maybe">
+                <div class="response-group-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    Maybe (${maybe.length})
+                </div>
+                <div class="response-avatars">
+                    ${maybe.map(m => `<div class="response-avatar" title="${m.email}">${(m.email || '?')[0].toUpperCase()}</div>`).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    if (cant.length > 0) {
+        html += `
+            <div class="response-group cant">
+                <div class="response-group-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                    Can't Make It (${cant.length})
+                </div>
+                <div class="response-avatars">
+                    ${cant.map(m => `<div class="response-avatar" title="${m.email}">${(m.email || '?')[0].toUpperCase()}</div>`).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    if (pending.length > 0) {
+        html += `
+            <div class="response-group pending">
+                <div class="response-group-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+                    Pending (${pending.length})
+                </div>
+                <div class="response-avatars">
+                    ${pending.map(m => `<div class="response-avatar" title="${m.email}">${(m.email || '?')[0].toUpperCase()}</div>`).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html;
+    container.style.display = 'block';
+}
+
+// RSVP to a rehearsal
+async function rsvpRehearsal(status) {
+    if (!window.currentUser) {
+        const user = await window.signInWithGoogle();
+        if (!user) return;
+    }
+
+    const rehearsalId = window.currentRehearsalId;
+    if (!rehearsalId) return;
+
+    try {
+        const rehearsalRef = doc(db, "rehearsals", rehearsalId);
+        const rehearsalDoc = await getDoc(rehearsalRef);
+
+        if (!rehearsalDoc.exists()) {
+            alert('Rehearsal not found');
+            return;
+        }
+
+        const rehearsal = rehearsalDoc.data();
+        const userId = window.currentUser.uid;
+        const userEmail = window.currentUser.email;
+
+        // Update invited members array
+        let invitedMembers = rehearsal.invitedMembers || [];
+        let memberIndex = invitedMembers.findIndex(m =>
+            m.odId === userId || m.email === userEmail
+        );
+
+        if (memberIndex >= 0) {
+            invitedMembers[memberIndex].status = status;
+        } else {
+            // User not in invited list, add them
+            invitedMembers.push({
+                odId: userId,
+                email: userEmail,
+                status: status
+            });
+        }
+
+        await updateDoc(rehearsalRef, { invitedMembers });
+
+        // Update UI
+        window.currentRehearsalData.invitedMembers = invitedMembers;
+        updateRsvpButtons(window.currentRehearsalData);
+        renderRsvpResponses(window.currentRehearsalData);
+
+    } catch (error) {
+        console.error("Error updating RSVP:", error);
+        alert('Error updating RSVP');
+    }
+}
+window.rsvpRehearsal = rsvpRehearsal;
+
+// View linked gig
+function viewLinkedGig(gigId) {
+    if (window.openGig) {
+        window.openGig(gigId, 'viewer');
+    }
+}
+window.viewLinkedGig = viewLinkedGig;
+
+// Backward compatibility - redirect showMyGigs to showMySchedule
+window.showMyGigs = showMySchedule;

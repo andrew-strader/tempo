@@ -4254,3 +4254,560 @@ body.hide-tab-bar .container.has-tab-bar {
     width: 22px;
     height: 22px;
 }
+
+/* Schedule Filters */
+.schedule-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    padding: 4px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+}
+
+.schedule-filter-btn {
+    flex: 1;
+    padding: 10px 16px;
+    border: none;
+    background: transparent;
+    color: #888;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.schedule-filter-btn:hover {
+    color: #fff;
+}
+
+.schedule-filter-btn.active {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+/* Invite Mode Toggle */
+.invite-mode-toggle {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 4px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+}
+
+.invite-mode-btn {
+    flex: 1;
+    padding: 12px 16px;
+    border: none;
+    background: transparent;
+    color: #888;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.invite-mode-btn:hover {
+    color: #fff;
+}
+
+.invite-mode-btn.active {
+    background: rgba(102, 126, 234, 0.2);
+    color: #a5b4fc;
+}
+
+/* Invitees List */
+.invitees-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.invitee-chip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+}
+
+.invitee-chip span {
+    color: #fff;
+    font-size: 14px;
+}
+
+.invitee-remove {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+}
+
+.invitee-remove:hover {
+    color: #ff6b6b;
+}
+
+.add-email-row {
+    display: flex;
+    gap: 8px;
+}
+
+.add-email-row input {
+    flex: 1;
+}
+
+.add-email-row .btn {
+    padding: 12px 16px;
+    white-space: nowrap;
+}
+
+/* Recurring Options */
+.recurring-options {
+    margin-top: 12px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+}
+
+.recurring-options .form-group {
+    margin-bottom: 12px;
+}
+
+.recurring-options .form-group:last-child {
+    margin-bottom: 0;
+}
+
+/* RSVP Buttons */
+.rsvp-buttons {
+    display: flex;
+    gap: 8px;
+    margin: 20px 0;
+}
+
+.rsvp-btn {
+    flex: 1;
+    padding: 14px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.03);
+    color: #888;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.rsvp-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+}
+
+.rsvp-btn.going.active {
+    background: rgba(76, 175, 80, 0.2);
+    border-color: #4CAF50;
+    color: #4CAF50;
+}
+
+.rsvp-btn.maybe.active {
+    background: rgba(255, 193, 7, 0.2);
+    border-color: #FFC107;
+    color: #FFC107;
+}
+
+.rsvp-btn.cant.active {
+    background: rgba(244, 67, 54, 0.2);
+    border-color: #F44336;
+    color: #F44336;
+}
+
+/* RSVP Responses List */
+.rsvp-responses {
+    margin: 20px 0;
+}
+
+.rsvp-responses h4 {
+    color: #888;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+}
+
+.response-group {
+    margin-bottom: 16px;
+}
+
+.response-group-label {
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.response-group-label svg {
+    width: 14px;
+    height: 14px;
+}
+
+.response-group.going .response-group-label {
+    color: #4CAF50;
+}
+
+.response-group.maybe .response-group-label {
+    color: #FFC107;
+}
+
+.response-group.cant .response-group-label {
+    color: #F44336;
+}
+
+.response-group.pending .response-group-label {
+    color: #888;
+}
+
+.response-avatars {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.response-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #fff;
+    font-weight: 500;
+}
+
+.response-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+/* Collapsible Sections */
+.collapsible-section {
+    margin: 16px 0;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.collapsible-section summary {
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    list-style: none;
+    font-weight: 500;
+    color: #fff;
+}
+
+.collapsible-section summary::-webkit-details-marker {
+    display: none;
+}
+
+.collapsible-section summary::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid #888;
+    border-bottom: 2px solid #888;
+    transform: rotate(-45deg);
+    transition: transform 0.2s;
+}
+
+.collapsible-section[open] summary::after {
+    transform: rotate(45deg);
+}
+
+.collapsible-content {
+    padding: 16px;
+}
+
+/* Type Badges */
+.type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.type-badge.gig {
+    background: rgba(102, 126, 234, 0.2);
+    color: #a5b4fc;
+}
+
+.type-badge.rehearsal {
+    background: rgba(76, 175, 80, 0.2);
+    color: #81C784;
+}
+
+.type-badge svg {
+    width: 12px;
+    height: 12px;
+}
+
+/* Schedule Item Cards */
+.schedule-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.schedule-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.schedule-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+}
+
+.schedule-item-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #fff;
+    margin: 0;
+}
+
+.schedule-item-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: #888;
+    font-size: 13px;
+}
+
+.schedule-item-meta span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.schedule-item-meta svg {
+    width: 14px;
+    height: 14px;
+    opacity: 0.7;
+}
+
+/* Rehearsal Detail Styles */
+.rehearsal-detail-header {
+    text-align: center;
+    padding: 20px 0;
+}
+
+.rehearsal-detail-icon {
+    width: 64px;
+    height: 64px;
+    background: rgba(76, 175, 80, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+}
+
+.rehearsal-detail-icon svg {
+    width: 32px;
+    height: 32px;
+    stroke: #81C784;
+}
+
+.rehearsal-detail-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 8px 0;
+}
+
+.rehearsal-detail-band {
+    color: #888;
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+
+.rehearsal-detail-datetime {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    color: #ccc;
+    font-size: 15px;
+}
+
+.rehearsal-detail-section {
+    margin: 24px 0;
+}
+
+.rehearsal-detail-section h4 {
+    color: #888;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+}
+
+.rehearsal-location-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+}
+
+.rehearsal-location-card svg {
+    width: 20px;
+    height: 20px;
+    color: #888;
+}
+
+.rehearsal-location-card span {
+    color: #fff;
+    font-size: 15px;
+}
+
+.rehearsal-notes {
+    color: #ccc;
+    font-size: 15px;
+    line-height: 1.6;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+}
+
+.linked-gig-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(102, 126, 234, 0.1);
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.linked-gig-card:hover {
+    background: rgba(102, 126, 234, 0.15);
+}
+
+.linked-gig-card svg {
+    width: 20px;
+    height: 20px;
+    color: #a5b4fc;
+}
+
+.linked-gig-info {
+    flex: 1;
+}
+
+.linked-gig-info h5 {
+    margin: 0 0 4px 0;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 500;
+}
+
+.linked-gig-info span {
+    color: #888;
+    font-size: 13px;
+}
+
+/* Setlist Display */
+.setlist-display {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.setlist-song {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+}
+
+.setlist-song-number {
+    width: 24px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #888;
+    flex-shrink: 0;
+}
+
+.setlist-song-info {
+    flex: 1;
+}
+
+.setlist-song-title {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.setlist-song-duration {
+    color: #888;
+    font-size: 12px;
+}
+
+/* Create Rehearsal Specific */
+.time-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+}
+
+.checkbox-row input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: #667eea;
+}
+
+.checkbox-row label {
+    color: #fff;
+    font-size: 15px;
+}

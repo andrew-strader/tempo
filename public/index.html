@@ -186,6 +186,13 @@
                     <p>Schedule a show with rehearsals</p>
                 </div>
             </div>
+            <div class="create-sheet-option" onclick="closeCreateSheet(); showCreateRehearsal();">
+                <span class="create-sheet-option-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg></span>
+                <div class="create-sheet-option-text">
+                    <h4>New Rehearsal</h4>
+                    <p>Schedule a practice session</p>
+                </div>
+            </div>
             <div class="create-sheet-option" onclick="closeCreateSheet(); showCreateBand();">
                 <span class="create-sheet-option-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="19" cy="7" r="3"/><path d="M19 21v-1a3 3 0 00-3-3h-1"/></svg></span>
                 <div class="create-sheet-option-text">
@@ -202,9 +209,9 @@
             <span class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg></span>
             <span class="tab-label">Home</span>
         </button>
-        <button class="tab-btn" id="tabGigs" onclick="switchTab('gigs')">
+        <button class="tab-btn" id="tabSchedule" onclick="switchTab('schedule')">
             <span class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
-            <span class="tab-label">Gigs</span>
+            <span class="tab-label">Schedule</span>
         </button>
         <button class="tab-btn" id="tabBands" onclick="switchTab('bands')">
             <span class="tab-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="19" cy="7" r="3"/><path d="M19 21v-1a3 3 0 00-3-3h-1"/></svg></span>
@@ -272,11 +279,11 @@
                     </div>
                 </button>
 
-                <button class="home-option-btn" id="dashboardLink" onclick="showMyGigs()">
+                <button class="home-option-btn" id="dashboardLink" onclick="showMySchedule()">
                     <span class="home-option-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor"/><circle cx="4" cy="12" r="1.5" fill="currentColor"/><circle cx="4" cy="18" r="1.5" fill="currentColor"/></svg></span>
                     <div class="home-option-text">
-                        <div class="home-option-title">My Gigs</div>
-                        <div class="home-option-desc">View all your shows and rehearsals</div>
+                        <div class="home-option-title">My Schedule</div>
+                        <div class="home-option-desc">View all your gigs and rehearsals</div>
                     </div>
                 </button>
 
@@ -920,7 +927,215 @@
             <button class="btn" onclick="saveBand()">Create Band</button>
             <button class="btn btn-secondary" onclick="showMyBands()" style="margin-top: 12px;">Cancel</button>
         </div>
-        
+
+        <!-- Screen: Create Rehearsal -->
+        <div class="screen" id="screenCreateRehearsal">
+            <div class="logo"><img src="/tempo-logo.svg" alt="Tempo" class="logo-img"></div>
+            <p class="tagline">Schedule a rehearsal</p>
+
+            <div class="card">
+                <h2>Rehearsal Details</h2>
+
+                <label>Name <span style="color:#555;font-weight:normal;">(optional)</span></label>
+                <input type="text" id="rehearsalName" placeholder="e.g., Tuesday Jam, Album Prep">
+
+                <label>Date <span style="color:#e74c3c;">*</span></label>
+                <input type="date" id="rehearsalDate" required min="2024-01-01" max="2099-12-31">
+
+                <div class="row">
+                    <div>
+                        <label>Start Time <span style="color:#e74c3c;">*</span></label>
+                        <input type="time" id="rehearsalStartTime" required>
+                    </div>
+                    <div>
+                        <label>End Time <span style="color:#555;font-weight:normal;">(optional)</span></label>
+                        <input type="time" id="rehearsalEndTime">
+                    </div>
+                </div>
+
+                <label>Location <span style="color:#555;font-weight:normal;">(optional)</span></label>
+                <input type="text" id="rehearsalLocationInput" placeholder="Address or location name">
+            </div>
+
+            <div class="card">
+                <h2>Who's Invited?</h2>
+
+                <div class="invite-mode-toggle">
+                    <button class="invite-mode-btn active" id="inviteBandBtn" onclick="setInviteMode('band')">Invite a Band</button>
+                    <button class="invite-mode-btn" id="inviteIndividualBtn" onclick="setInviteMode('individual')">Invite Individuals</button>
+                </div>
+
+                <!-- Band mode -->
+                <div id="inviteBandMode">
+                    <label>Select Band</label>
+                    <select id="rehearsalBandSelect" onchange="onRehearsalBandSelected()">
+                        <option value="">-- Select a band --</option>
+                    </select>
+
+                    <div id="linkedGigSection" style="display: none; margin-top: 16px;">
+                        <label>Link to Gig <span style="color:#555;font-weight:normal;">(optional)</span></label>
+                        <select id="rehearsalLinkedGig">
+                            <option value="">-- No linked gig --</option>
+                        </select>
+                        <p class="helper-text">Link this rehearsal to an upcoming gig</p>
+                    </div>
+                </div>
+
+                <!-- Individual mode -->
+                <div id="inviteIndividualMode" style="display: none;">
+                    <label>Add by Email</label>
+                    <div class="add-email-row">
+                        <input type="email" id="rehearsalInviteEmail" placeholder="email@example.com">
+                        <button class="add-email-btn" onclick="addRehearsalInvitee()">Add</button>
+                    </div>
+                    <div id="rehearsalInviteesList" class="invitees-list"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <label class="checkbox-row">
+                    <input type="checkbox" id="rehearsalRecurring" onchange="toggleRecurring()">
+                    <span>Make this a recurring rehearsal</span>
+                </label>
+
+                <div id="recurringOptions" style="display: none; margin-top: 16px;">
+                    <label>Frequency</label>
+                    <select id="rehearsalFrequency">
+                        <option value="weekly">Weekly</option>
+                        <option value="biweekly">Every 2 weeks</option>
+                        <option value="monthly">Monthly</option>
+                    </select>
+
+                    <label style="margin-top: 12px;">End Date</label>
+                    <input type="date" id="rehearsalRecurringEnd" min="2024-01-01" max="2099-12-31">
+                    <p class="helper-text">Rehearsals will repeat until this date</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <label>Notes <span style="color:#555;font-weight:normal;">(optional)</span></label>
+                <textarea id="rehearsalNotes" placeholder="What to work on, what to bring, etc."></textarea>
+            </div>
+
+            <details class="collapsible-section">
+                <summary>Setlist</summary>
+                <div class="details-content">
+                    <p class="helper-text">Add songs to practice</p>
+                    <div id="rehearsalSetlistItems"></div>
+                    <div class="add-song-row">
+                        <input type="text" id="rehearsalNewSongTitle" placeholder="Song title">
+                        <input type="text" id="rehearsalNewSongDuration" placeholder="3:45" class="duration-input">
+                        <button class="add-song-btn" onclick="addRehearsalSong()">+</button>
+                    </div>
+                </div>
+            </details>
+
+            <details class="collapsible-section">
+                <summary>Practice Playlist</summary>
+                <div class="details-content">
+                    <label>Playlist URL <span style="color:#555;font-weight:normal;">(Spotify, YouTube, etc.)</span></label>
+                    <input type="url" id="rehearsalPlaylistUrl" placeholder="https://open.spotify.com/playlist/...">
+                </div>
+            </details>
+
+            <details class="collapsible-section">
+                <summary>Files</summary>
+                <div class="details-content">
+                    <p class="helper-text">Charts, audio files, PDFs</p>
+                    <div id="rehearsalUploadedFiles"></div>
+                    <div class="file-upload-area" onclick="document.getElementById('rehearsalFileInput').click()">
+                        <div class="upload-text">Tap to upload files</div>
+                        <div class="upload-subtext">PDFs, audio files, documents</div>
+                    </div>
+                    <input type="file" id="rehearsalFileInput" multiple accept="audio/*,.pdf,.doc,.docx" style="display:none" onchange="handleRehearsalFileSelect(event)">
+                </div>
+            </details>
+
+            <button class="btn btn-primary" onclick="createRehearsal()" style="margin-top: 24px;">Create Rehearsal</button>
+            <button class="btn btn-secondary" onclick="showMySchedule()">Cancel</button>
+        </div>
+
+        <!-- Screen: Rehearsal Detail -->
+        <div class="screen" id="screenRehearsalDetail">
+            <div class="logo"><img src="/tempo-logo.svg" alt="Tempo" class="logo-img"></div>
+
+            <div class="rehearsal-detail-header">
+                <div class="rehearsal-type-badge">Rehearsal</div>
+                <h1 id="rehearsalDetailName">Rehearsal</h1>
+                <div id="rehearsalDetailBand" class="rehearsal-detail-band"></div>
+            </div>
+
+            <div class="card">
+                <div class="rehearsal-detail-row">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <span id="rehearsalDetailDate">Loading...</span>
+                </div>
+                <div class="rehearsal-detail-row">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+                    <span id="rehearsalDetailTime">Loading...</span>
+                </div>
+                <div class="rehearsal-detail-row" id="rehearsalDetailLocationRow" style="display: none;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    <span id="rehearsalDetailLocation"></span>
+                </div>
+                <div class="rehearsal-detail-row" id="rehearsalDetailLinkedGigRow" style="display: none;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <span>For: <a href="#" id="rehearsalDetailLinkedGig" onclick="viewLinkedGig(event)">Gig</a></span>
+                </div>
+            </div>
+
+            <!-- RSVP Section (for non-organizers) -->
+            <div class="card" id="rehearsalRsvpSection" style="display: none;">
+                <h2>Your Response</h2>
+                <div class="rsvp-buttons">
+                    <button class="rsvp-btn" data-response="yes" onclick="rsvpRehearsal('yes')">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
+                        Going
+                    </button>
+                    <button class="rsvp-btn" data-response="maybe" onclick="rsvpRehearsal('maybe')">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/></svg>
+                        Maybe
+                    </button>
+                    <button class="rsvp-btn" data-response="no" onclick="rsvpRehearsal('no')">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        Can't make it
+                    </button>
+                </div>
+            </div>
+
+            <!-- Responses Section -->
+            <div class="card" id="rehearsalResponsesSection" style="display: none;">
+                <h2>Responses</h2>
+                <div id="rehearsalResponsesList"></div>
+            </div>
+
+            <!-- Notes Section -->
+            <div class="card" id="rehearsalNotesSection" style="display: none;">
+                <h2>Notes</h2>
+                <div id="rehearsalDetailNotes" class="notes-content"></div>
+            </div>
+
+            <!-- Setlist Section -->
+            <div class="card" id="rehearsalSetlistSection" style="display: none;">
+                <h2>Setlist</h2>
+                <div id="rehearsalDetailSetlist"></div>
+            </div>
+
+            <!-- Playlist Section -->
+            <div class="card" id="rehearsalPlaylistSection" style="display: none;">
+                <h2>Practice Playlist</h2>
+                <a href="#" id="rehearsalDetailPlaylist" target="_blank" class="playlist-link">Open Playlist</a>
+            </div>
+
+            <!-- Files Section -->
+            <div class="card" id="rehearsalFilesSection" style="display: none;">
+                <h2>Files</h2>
+                <div id="rehearsalDetailFiles"></div>
+            </div>
+
+            <button class="btn btn-secondary" onclick="showMySchedule()" style="margin-top: 20px;">Back to Schedule</button>
+        </div>
+
         <!-- Screen: Band Detail -->
         <div class="screen" id="screenBandDetail">
             <div class="logo"><img src="/tempo-logo.svg" alt="Tempo" class="logo-img"></div>
@@ -1221,25 +1436,31 @@
             <button class="btn btn-secondary" onclick="startOver()">Create another gig</button>
         </div>
         
-        <!-- Screen: My Gigs Dashboard -->
-        <div class="screen" id="screenMyGigs">
+        <!-- Screen: My Schedule Dashboard -->
+        <div class="screen" id="screenMySchedule">
             <div class="logo"><img src="/tempo-logo.svg" alt="Tempo" class="logo-img"></div>
             <p class="tagline">Your gigs and rehearsals</p>
-            
-            <div id="userInfoMyGigs" class="user-info" style="display: none;"></div>
-            
+
+            <div id="userInfoMySchedule" class="user-info" style="display: none;"></div>
+
             <div class="card">
-                <h2>My Gigs</h2>
-                <div id="myGigsList" class="my-gigs-list">
+                <div class="card-header" style="margin-bottom: 16px;">
+                    <h2>My Schedule</h2>
+                </div>
+                <div class="schedule-filters">
+                    <button class="schedule-filter-btn active" data-filter="all" onclick="filterSchedule('all')">All</button>
+                    <button class="schedule-filter-btn" data-filter="gigs" onclick="filterSchedule('gigs')">Gigs</button>
+                    <button class="schedule-filter-btn" data-filter="rehearsals" onclick="filterSchedule('rehearsals')">Rehearsals</button>
+                </div>
+                <div id="myScheduleList" class="my-schedule-list">
                     <div class="empty-state">
                         <div class="empty-state-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div>
-                        <p>Loading your gigs...</p>
+                        <p>Loading your schedule...</p>
                     </div>
                 </div>
             </div>
-            
-            <button class="btn btn-primary" onclick="startNewGig()">+ Create New Gig</button>
-            <button class="btn btn-secondary" onclick="showHomeScreen()">← Back</button>
+
+            <button class="btn btn-secondary" onclick="showHomeScreen()">Back</button>
         </div>
         
         <!-- Screen 6: Leader Dashboard -->
@@ -1300,7 +1521,7 @@
                 <button class="btn btn-secondary" onclick="refreshDashboard()">↻ Refresh</button>
                 <button class="btn btn-secondary edit-gig-btn" onclick="editGig()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M17 3l4 4L7 21H3v-4L17 3z"/></svg>Edit Gig Details</button>
                 <button class="btn btn-secondary" onclick="backToShare()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16,6 12,2 8,6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>Share Link</button>
-                <button class="btn btn-secondary" onclick="showMyGigs()">My Gigs</button>
+                <button class="btn btn-secondary" onclick="showMySchedule()">My Gigs</button>
                 <button class="btn btn-secondary" onclick="showHomeScreen()">Home</button>
             </div>
         </div>
@@ -1444,7 +1665,7 @@
             </div>
             
             <button class="btn btn-secondary" onclick="addToCalendar()">+ Add to Calendar</button>
-            <button class="btn btn-secondary" onclick="showMyGigs()">📋 My Gigs</button>
+            <button class="btn btn-secondary" onclick="showMySchedule()">📋 My Gigs</button>
             <button class="btn btn-secondary" onclick="showHomeScreen()">🏠 Home</button>
         </div>
     </div>
