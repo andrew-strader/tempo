@@ -4342,11 +4342,12 @@ function updateRsvpButtons(rehearsal) {
 
 // Render RSVP responses
 function renderRsvpResponses(rehearsal) {
-    const container = document.getElementById('rehearsalDetailResponses');
+    const container = document.getElementById('rehearsalResponsesList');
+    const section = document.getElementById('rehearsalResponsesSection');
     if (!container) return;
 
     if (!rehearsal.invitedMembers || rehearsal.invitedMembers.length === 0) {
-        container.style.display = 'none';
+        if (section) section.style.display = 'none';
         return;
     }
 
@@ -4414,7 +4415,7 @@ function renderRsvpResponses(rehearsal) {
     }
 
     container.innerHTML = html;
-    container.style.display = 'block';
+    if (section) section.style.display = 'block';
 }
 
 // RSVP to a rehearsal
