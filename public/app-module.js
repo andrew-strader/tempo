@@ -4204,21 +4204,39 @@ window.showRehearsalDetail = showRehearsalDetail;
 function updateRsvpButtons(rehearsal) {
     const userId = window.currentUser?.uid;
     const userEmail = window.currentUser?.email;
+    const rsvpSection = document.getElementById('rehearsalRsvpSection');
 
-    // Find current user's RSVP status
+    // Check if user is the creator (creators don't RSVP to their own rehearsal)
+    const isCreator = rehearsal.creatorId === userId;
+
+    // Check if user is invited
+    let isInvited = false;
     let currentStatus = 'pending';
     if (rehearsal.invitedMembers) {
         const member = rehearsal.invitedMembers.find(m =>
             m.odId === userId || m.email === userEmail
         );
         if (member) {
+            isInvited = true;
             currentStatus = member.status || 'pending';
+        }
+    }
+
+    // Show RSVP section for invited non-creators
+    if (rsvpSection) {
+        if (isInvited && !isCreator) {
+            rsvpSection.style.display = 'block';
+        } else {
+            rsvpSection.style.display = 'none';
         }
     }
 
     // Update button states
     document.querySelectorAll('.rsvp-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.status === currentStatus);
+        const btnResponse = btn.dataset.response;
+        // Map response values to status values
+        const statusMap = { 'yes': 'going', 'maybe': 'maybe', 'no': 'cant' };
+        btn.classList.toggle('active', statusMap[btnResponse] === currentStatus);
     });
 }
 
@@ -4300,7 +4318,7 @@ function renderRsvpResponses(rehearsal) {
 }
 
 // RSVP to a rehearsal
-async function rsvpRehearsal(status) {
+async function rsvpRehearsal(response) {
     if (!window.currentUser) {
         const user = await window.signInWithGoogle();
         if (!user) return;
@@ -4308,6 +4326,10 @@ async function rsvpRehearsal(status) {
 
     const rehearsalId = window.currentRehearsalId;
     if (!rehearsalId) return;
+
+    // Map button responses to status values
+    const statusMap = { 'yes': 'going', 'maybe': 'maybe', 'no': 'cant' };
+    const status = statusMap[response] || response;
 
     try {
         const rehearsalRef = doc(db, "rehearsals", rehearsalId);
