@@ -2932,8 +2932,13 @@ window.switchTab = switchTab;
 // Show discovery home screen
 function showDiscoveryHome() {
     // Hide all screens
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById('screen0').classList.add('active');
+    document.querySelectorAll('.screen').forEach(s => {
+        s.classList.remove('active');
+        s.style.display = '';
+    });
+    const screen0 = document.getElementById('screen0');
+    screen0.classList.add('active');
+    screen0.style.display = 'block';
     showGlobalHeader();
     document.body.classList.remove('hide-tab-bar');
     const tabBar = document.getElementById('bottomTabBar');
@@ -4036,8 +4041,20 @@ function renderScheduleItem(item, isPast) {
 
 // Show rehearsal detail screen
 async function showRehearsalDetail(rehearsalId) {
+    // Ensure all screens are hidden, especially screen0
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById('screenRehearsalDetail').classList.add('active');
+    const screen0 = document.getElementById('screen0');
+    if (screen0) screen0.style.display = 'none';
+
+    // Show rehearsal detail screen
+    const detailScreen = document.getElementById('screenRehearsalDetail');
+    detailScreen.classList.add('active');
+    detailScreen.style.display = 'block';
+
+    // Show loading state
+    document.getElementById('rehearsalDetailName').textContent = 'Loading...';
+    document.getElementById('rehearsalDetailDate').textContent = '';
+    document.getElementById('rehearsalDetailTime').textContent = '';
 
     // Update URL
     window.history.pushState({}, '', '/r/' + rehearsalId);
