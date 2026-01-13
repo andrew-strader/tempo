@@ -343,9 +343,14 @@ function toggleMenu() {
 }
 
 function goHome() {
-    toggleMenu();
+    // Close menu if it's open
+    const overlay = document.getElementById('menuOverlay');
+    const menu = document.getElementById('slideMenu');
+    overlay.classList.remove('visible');
+    menu.classList.remove('visible');
+
     showDiscoveryHome();
-    
+
     // Update tab bar
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     const tabHome = document.getElementById('tabHome');
