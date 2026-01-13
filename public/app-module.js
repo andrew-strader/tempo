@@ -4173,8 +4173,29 @@ async function showRehearsalDetail(rehearsalId) {
 
     } catch (error) {
         console.error("Error loading rehearsal:", error);
-        alert('Error loading rehearsal');
-        showMySchedule();
+        // Show sign-in prompt for unauthenticated users
+        if (!window.currentUser) {
+            // Store rehearsal ID so we can load it after sign-in
+            window.pendingRehearsalDetail = rehearsalId;
+
+            document.getElementById('rehearsalDetailName').textContent = 'Sign in to view this rehearsal';
+            document.getElementById('rehearsalDetailDate').textContent = 'You need to sign in to see rehearsal details';
+            document.getElementById('rehearsalDetailTime').textContent = '';
+            // Show RSVP section with sign-in button
+            const rsvpSection = document.getElementById('rehearsalRsvpSection');
+            if (rsvpSection) {
+                rsvpSection.style.display = 'block';
+                rsvpSection.innerHTML = `
+                    <h2>Sign in to RSVP</h2>
+                    <button class="btn btn-primary" onclick="signInWithGoogle()" style="width: 100%;">
+                        Sign in with Google
+                    </button>
+                `;
+            }
+        } else {
+            alert('Error loading rehearsal');
+            showMySchedule();
+        }
     }
 }
 window.showRehearsalDetail = showRehearsalDetail;
