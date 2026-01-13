@@ -235,9 +235,10 @@ onAuthStateChanged(auth, async (user) => {
     } else if (user && window.pendingNewRehearsal) {
         window.pendingNewRehearsal = false;
         showCreateRehearsal();
-    } else if (user && window.pendingRehearsalDetail) {
-        const rId = window.pendingRehearsalDetail;
+    } else if (user && (window.pendingRehearsalDetail || sessionStorage.getItem('pendingRehearsalDetail'))) {
+        const rId = window.pendingRehearsalDetail || sessionStorage.getItem('pendingRehearsalDetail');
         window.pendingRehearsalDetail = null;
+        sessionStorage.removeItem('pendingRehearsalDetail');
         showRehearsalDetail(rId);
     } else if (user && window.pendingBandDetail) {
         const bandId = window.pendingBandDetail;
@@ -4192,7 +4193,8 @@ async function showRehearsalDetail(rehearsalId) {
         console.error("Error loading rehearsal:", error);
         // Show sign-in prompt for unauthenticated users
         if (!window.currentUser) {
-            // Store rehearsal ID so we can load it after sign-in
+            // Store rehearsal ID in sessionStorage so it survives sign-in redirect
+            sessionStorage.setItem('pendingRehearsalDetail', rehearsalId);
             window.pendingRehearsalDetail = rehearsalId;
 
             document.getElementById('rehearsalDetailName').textContent = 'Sign in to view this rehearsal';
