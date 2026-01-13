@@ -4425,7 +4425,10 @@ async function rsvpRehearsal(response) {
     }
 
     const rehearsalId = window.currentRehearsalId;
-    if (!rehearsalId) return;
+    if (!rehearsalId) {
+        alert('No rehearsal ID found');
+        return;
+    }
 
     // Map button responses to status values
     const statusMap = { 'yes': 'going', 'maybe': 'maybe', 'no': 'cant' };
@@ -4462,6 +4465,7 @@ async function rsvpRehearsal(response) {
         }
 
         await updateDoc(rehearsalRef, { invitedMembers });
+        alert('RSVP saved successfully!');
 
         // Update UI immediately
         if (window.currentRehearsalData) {
