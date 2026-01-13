@@ -149,6 +149,13 @@ onAuthStateChanged(auth, async (user) => {
     updateAuthUI(user);
     if (window.updateMenuAuth) updateMenuAuth();
 
+    // If user just signed in via RSVP flow, reload the page
+    if (user && window.pendingRsvpReload) {
+        window.pendingRsvpReload = false;
+        location.reload();
+        return;
+    }
+
     // If user just signed in and we're on rehearsal detail, refresh it
     if (user && window.currentRehearsalId) {
         const rehearsalScreen = document.getElementById('screenRehearsalDetail');
@@ -4230,13 +4237,12 @@ async function showRehearsalDetail(rehearsalId) {
 }
 window.showRehearsalDetail = showRehearsalDetail;
 
-// Sign in for RSVP - reloads page after successful sign-in
+// Sign in for RSVP - sets flag to reload on auth state change
+window.pendingRsvpReload = false;
 window.signInForRsvp = async function() {
-    const user = await window.signInWithGoogle();
-    if (user) {
-        // Simply reload the page - this is the most reliable way
-        location.reload();
-    }
+    window.pendingRsvpReload = true;
+    await window.signInWithGoogle();
+    // The reload will happen in onAuthStateChanged
 };
 
 // Update RSVP buttons based on current user's status
@@ -4457,15 +4463,22 @@ async function rsvpRehearsal(response) {
 
         await updateDoc(rehearsalRef, { invitedMembers });
 
-        // Update UI
+        // Update UI immediately
         if (window.currentRehearsalData) {
             window.currentRehearsalData.invitedMembers = invitedMembers;
-            updateRsvpButtons(window.currentRehearsalData);
-            renderRsvpResponses(window.currentRehearsalData);
         }
 
-        // Visual feedback
-        alert('RSVP updated!');
+        // Update button states directly for immediate visual feedback
+        document.querySelectorAll('.rsvp-btn').forEach(btn => {
+            const btnResponse = btn.dataset.response;
+            const statusMap = { 'yes': 'going', 'maybe': 'maybe', 'no': 'cant' };
+            btn.classList.toggle('active', statusMap[btnResponse] === status);
+        });
+
+        // Update responses display
+        if (window.currentRehearsalData) {
+            renderRsvpResponses(window.currentRehearsalData);
+        }
 
     } catch (error) {
         console.error("Error updating RSVP:", error);
