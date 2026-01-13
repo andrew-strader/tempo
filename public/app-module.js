@@ -2614,8 +2614,10 @@ if (isPrivacyPage) {
     // Will be handled after auth
     window.pendingNewRehearsal = true;
 } else if (rehearsalId) {
-    // Will be handled after auth
-    window.pendingRehearsalDetail = rehearsalId;
+    // Show rehearsal detail directly (like gigs)
+    document.getElementById('screen0').classList.remove('active');
+    showGlobalHeader();
+    showRehearsalDetail(rehearsalId);
 } else if (bandDetailId) {
     // Will be handled after auth
     window.pendingBandDetail = bandDetailId;
