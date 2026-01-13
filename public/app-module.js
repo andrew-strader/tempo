@@ -4305,15 +4305,15 @@ function updateRsvpButtons(rehearsal) {
                 rsvpSection.innerHTML = `
                     <h2>Your Response</h2>
                     <div class="rsvp-buttons">
-                        <button class="rsvp-btn" data-response="yes">
+                        <button class="rsvp-btn going" data-response="yes">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20,6 9,17 4,12"/></svg>
                             Going
                         </button>
-                        <button class="rsvp-btn" data-response="maybe">
+                        <button class="rsvp-btn maybe" data-response="maybe">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><circle cx="12" cy="16" r="0.5" fill="currentColor"/></svg>
                             Maybe
                         </button>
-                        <button class="rsvp-btn" data-response="no">
+                        <button class="rsvp-btn cant" data-response="no">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                             Can't make it
                         </button>
@@ -4465,7 +4465,6 @@ async function rsvpRehearsal(response) {
         }
 
         await updateDoc(rehearsalRef, { invitedMembers });
-        alert('RSVP saved successfully!');
 
         // Update UI immediately
         if (window.currentRehearsalData) {
@@ -4476,7 +4475,15 @@ async function rsvpRehearsal(response) {
         document.querySelectorAll('.rsvp-btn').forEach(btn => {
             const btnResponse = btn.dataset.response;
             const statusMap = { 'yes': 'going', 'maybe': 'maybe', 'no': 'cant' };
-            btn.classList.toggle('active', statusMap[btnResponse] === status);
+            const btnStatus = statusMap[btnResponse];
+            const isActive = btnStatus === status;
+            // Remove all status classes first
+            btn.classList.remove('going', 'maybe', 'cant', 'active');
+            // Add the status class and active if this is the selected button
+            btn.classList.add(btnStatus);
+            if (isActive) {
+                btn.classList.add('active');
+            }
         });
 
         // Update responses display
