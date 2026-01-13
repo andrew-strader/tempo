@@ -962,7 +962,7 @@
 
                 <div class="invite-mode-toggle">
                     <button class="invite-mode-btn active" id="inviteBandBtn" onclick="setInviteMode('band')">Invite a Band</button>
-                    <button class="invite-mode-btn" id="inviteIndividualBtn" onclick="setInviteMode('individual')">Invite Individuals</button>
+                    <button class="invite-mode-btn" id="inviteIndividualBtn" onclick="setInviteMode('individual')">Invite Musicians</button>
                 </div>
 
                 <!-- Band mode -->
@@ -971,6 +971,14 @@
                     <select id="rehearsalBandSelect" onchange="onRehearsalBandSelected()">
                         <option value="">-- Select a band --</option>
                     </select>
+
+                    <div id="rehearsalSuggestTimesSection" style="display: none; margin-top: 16px;">
+                        <button class="btn btn-secondary" onclick="openRehearsalAvailabilityCalendar()" style="width: 100%;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            Check Band Calendars
+                        </button>
+                        <p class="helper-text" id="rehearsalSuggestTimesHelper" style="text-align: center; margin: 8px 0 0;"></p>
+                    </div>
 
                     <div id="linkedGigSection" style="display: none; margin-top: 16px;">
                         <label>Link to Gig <span style="color:#555;font-weight:normal;">(optional)</span></label>

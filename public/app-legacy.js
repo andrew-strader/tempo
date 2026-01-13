@@ -777,14 +777,18 @@ window.availCalendarState = {
     currentMonth: new Date(),
     selectedTimes: [],
     busyData: {},
-    showDate: null
+    showDate: null,
+    mode: 'gig' // 'gig' for multiple selection, 'rehearsal' for single selection
 };
 
 // Open the availability calendar modal
 async function openAvailabilityCalendar() {
     const bandId = window.selectedBandForGig;
     if (!bandId) return;
-    
+
+    // Set mode for multiple selection (gig flow)
+    window.availCalendarState.mode = 'gig';
+
     // Get show date
     const showDateStr = document.getElementById('showDate').value;
     if (showDateStr) {
@@ -841,6 +845,67 @@ function closeAvailabilityCalendar() {
     document.getElementById('availModalOverlay').classList.remove('active');
 }
 window.closeAvailabilityCalendar = closeAvailabilityCalendar;
+
+// Open the availability calendar modal for rehearsal (single time selection)
+async function openRehearsalAvailabilityCalendar() {
+    const bandId = window.selectedBandForRehearsal;
+    if (!bandId) return;
+
+    // Set mode for single selection
+    window.availCalendarState.mode = 'rehearsal';
+
+    // Get rehearsal date if set
+    const rehearsalDateStr = document.getElementById('rehearsalDate').value;
+    if (rehearsalDateStr) {
+        window.availCalendarState.showDate = rehearsalDateStr;
+        window.availCalendarState.currentMonth = new Date(rehearsalDateStr + 'T00:00:00');
+        window.availCalendarState.currentMonth.setDate(1);
+    } else {
+        window.availCalendarState.currentMonth = new Date();
+        window.availCalendarState.currentMonth.setDate(1);
+    }
+
+    // Reset state
+    window.availCalendarState.selectedTimes = [];
+    window.availCalendarState.busyData = {};
+
+    // Show modal
+    document.getElementById('availModalOverlay').classList.add('active');
+    document.getElementById('availLoadingState').style.display = 'block';
+    document.getElementById('availCalendarContent').style.display = 'none';
+
+    const connectedCount = window.rehearsalCalendarConnectedCount || 0;
+    const subtitle = document.getElementById('availModalSubtitle');
+    subtitle.textContent = `Checking ${connectedCount} calendar${connectedCount !== 1 ? 's' : ''}...`;
+
+    try {
+        // Fetch busy times from cloud function
+        const showDate = rehearsalDateStr || new Date().toISOString().split('T')[0];
+        const response = await fetch(`https://us-central1-bandcal-89c81.cloudfunctions.net/getBandBusyTimes?bandId=${bandId}&showDate=${showDate}`);
+        const data = await response.json();
+
+        if (data.busyTimes) {
+            window.availCalendarState.busyData = data.busyTimes;
+            window.availCalendarState.memberNames = data.memberNames || [];
+        }
+
+        const totalMembers = window.rehearsalCalendarTotalMembers || 0;
+        subtitle.textContent = `${connectedCount} of ${totalMembers} calendars connected`;
+
+        // Show calendar
+        document.getElementById('availLoadingState').style.display = 'none';
+        document.getElementById('availCalendarContent').style.display = 'block';
+
+        renderAvailCalendar();
+        updateSelectedTimesDisplay();
+
+    } catch (error) {
+        console.error("Error fetching calendar data:", error);
+        subtitle.textContent = 'Could not load calendars';
+        document.getElementById('availLoadingState').innerHTML = '<p style="color: #f44336;">Error loading calendars. You can still add times manually.</p>';
+    }
+}
+window.openRehearsalAvailabilityCalendar = openRehearsalAvailabilityCalendar;
 
 // Navigate months
 function availPrevMonth() {
@@ -1060,13 +1125,18 @@ window.closeTimesPanel = closeTimesPanel;
 function toggleTimeSlot(date, time) {
     const state = window.availCalendarState;
     const existing = state.selectedTimes.findIndex(t => t.date === date && t.time === time);
-    
+
     if (existing >= 0) {
         state.selectedTimes.splice(existing, 1);
     } else {
-        state.selectedTimes.push({ date, time });
+        // For rehearsal mode, only allow single selection
+        if (state.mode === 'rehearsal') {
+            state.selectedTimes = [{ date, time }];
+        } else {
+            state.selectedTimes.push({ date, time });
+        }
     }
-    
+
     // Re-render current day's slots
     renderTimeSlots(date);
     updateSelectedTimesDisplay();
@@ -1078,15 +1148,20 @@ function updateSelectedTimesDisplay() {
     const container = document.getElementById('availSelectedTimes');
     const list = document.getElementById('availSelectedList');
     const times = window.availCalendarState.selectedTimes;
-    
+    const isRehearsal = window.availCalendarState.mode === 'rehearsal';
+
     if (times.length === 0) {
         container.style.display = 'none';
-        document.getElementById('applyTimesBtn').textContent = 'Add Selected Times';
+        document.getElementById('applyTimesBtn').textContent = isRehearsal ? 'Select a Time' : 'Add Selected Times';
         return;
     }
-    
+
     container.style.display = 'block';
-    document.getElementById('applyTimesBtn').textContent = `Add ${times.length} Time${times.length !== 1 ? 's' : ''}`;
+    if (isRehearsal) {
+        document.getElementById('applyTimesBtn').textContent = 'Use This Time';
+    } else {
+        document.getElementById('applyTimesBtn').textContent = `Add ${times.length} Time${times.length !== 1 ? 's' : ''}`;
+    }
     
     // Sort by date then time
     times.sort((a, b) => {
@@ -1122,16 +1197,31 @@ window.removeSelectedTime = removeSelectedTime;
 // Apply selected times to rehearsal slots
 function applySelectedTimes() {
     const times = window.availCalendarState.selectedTimes;
-    
+
     if (times.length === 0) {
         alert('Please select at least one time');
         return;
     }
-    
-    // Clear existing slots and add new ones
+
+    // Handle rehearsal mode - populate single date/time fields
+    if (window.availCalendarState.mode === 'rehearsal') {
+        const slot = times[0];
+        document.getElementById('rehearsalDate').value = slot.date;
+        document.getElementById('rehearsalStartTime').value = slot.time;
+
+        // Calculate end time (2 hours later)
+        const hour = parseInt(slot.time.split(':')[0]);
+        const endHour = Math.min(hour + 2, 23);
+        document.getElementById('rehearsalEndTime').value = `${String(endHour).padStart(2, '0')}:00`;
+
+        closeAvailabilityCalendar();
+        return;
+    }
+
+    // Handle gig mode - populate multiple slot options
     const container = document.getElementById('rehearsalSlots');
     container.innerHTML = '';
-    
+
     times.forEach((slot, index) => {
         const slotHtml = `
             <div class="rehearsal-slot" data-slot="${index + 1}">
@@ -1147,7 +1237,7 @@ function applySelectedTimes() {
         `;
         container.insertAdjacentHTML('beforeend', slotHtml);
     });
-    
+
     closeAvailabilityCalendar();
 }
 window.applySelectedTimes = applySelectedTimes;

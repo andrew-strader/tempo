@@ -3320,7 +3320,7 @@ window.showCreateRehearsal = showCreateRehearsal;
 
 // Load bands dropdown for rehearsal
 async function loadRehearsalBandDropdown() {
-    const select = document.getElementById('rehearsalBand');
+    const select = document.getElementById('rehearsalBandSelect');
     if (!select) return;
 
     select.innerHTML = '<option value="">Select a band...</option>';
@@ -3403,35 +3403,109 @@ async function loadLinkedGigDropdown() {
     }
 }
 
-// Set invite mode (band or individuals)
+// Set invite mode (band or individual)
 function setInviteMode(mode) {
     window.currentRehearsalInviteMode = mode;
 
     // Update buttons
-    document.querySelectorAll('.invite-mode-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.mode === mode);
-    });
+    document.getElementById('inviteBandBtn').classList.toggle('active', mode === 'band');
+    document.getElementById('inviteIndividualBtn').classList.toggle('active', mode === 'individual');
 
     // Show/hide sections
-    document.getElementById('bandInviteSection').style.display = mode === 'band' ? 'block' : 'none';
-    document.getElementById('individualInviteSection').style.display = mode === 'individuals' ? 'block' : 'none';
+    document.getElementById('inviteBandMode').style.display = mode === 'band' ? 'block' : 'none';
+    document.getElementById('inviteIndividualMode').style.display = mode === 'individual' ? 'block' : 'none';
 }
 window.setInviteMode = setInviteMode;
 
 // Handle band selection - load band members
 async function onRehearsalBandSelected() {
-    const bandId = document.getElementById('rehearsalBand').value;
-    if (!bandId) return;
+    const bandId = document.getElementById('rehearsalBandSelect').value;
+
+    if (!bandId) {
+        // Hide calendar section when no band selected
+        document.getElementById('rehearsalSuggestTimesSection').style.display = 'none';
+        document.getElementById('linkedGigSection').style.display = 'none';
+        window.selectedBandForRehearsal = null;
+        return;
+    }
+
+    // Store selected band for rehearsal
+    window.selectedBandForRehearsal = bandId;
 
     // Clear individual invitees when band is selected
     window.currentRehearsalInvitees = [];
     renderInviteesList();
+
+    // Show linked gig section
+    document.getElementById('linkedGigSection').style.display = 'block';
+
+    // Check band calendar status
+    await checkBandCalendarStatusForRehearsal(bandId);
 }
 window.onRehearsalBandSelected = onRehearsalBandSelected;
 
+// Check band members' calendar connection status for rehearsal
+async function checkBandCalendarStatusForRehearsal(bandId) {
+    const suggestSection = document.getElementById('rehearsalSuggestTimesSection');
+    const helper = document.getElementById('rehearsalSuggestTimesHelper');
+
+    try {
+        // Get band members
+        const membersQuery = query(
+            collection(db, "bandMembers"),
+            where("bandId", "==", bandId),
+            where("status", "==", "accepted")
+        );
+        const membersSnap = await getDocs(membersQuery);
+
+        let connectedCount = 0;
+        let totalMembers = membersSnap.size;
+
+        for (const memberDoc of membersSnap.docs) {
+            const member = memberDoc.data();
+            if (member.userId) {
+                const profileDoc = await getDoc(doc(db, "users", member.userId));
+                if (profileDoc.exists() && profileDoc.data().calendarConnected) {
+                    connectedCount++;
+                }
+            }
+        }
+
+        // Check if leader has calendar connected
+        const bandDoc = await getDoc(doc(db, "bands", bandId));
+        if (bandDoc.exists()) {
+            const band = bandDoc.data();
+            if (band.leaderId) {
+                const leaderProfile = await getDoc(doc(db, "users", band.leaderId));
+                if (leaderProfile.exists() && leaderProfile.data().calendarConnected) {
+                    connectedCount++;
+                }
+                totalMembers++;
+            }
+        }
+
+        // Store for modal use
+        window.rehearsalCalendarConnectedCount = connectedCount;
+        window.rehearsalCalendarTotalMembers = totalMembers;
+
+        suggestSection.style.display = 'block';
+
+        if (connectedCount === 0) {
+            helper.innerHTML = 'No members have connected calendars yet. <a href="#" onclick="showEditProfile(); return false;" style="color: #667eea;">Connect yours</a>';
+        } else {
+            helper.textContent = `${connectedCount} of ${totalMembers} members have calendars connected`;
+        }
+
+    } catch (error) {
+        console.error("Error checking calendar status:", error);
+        suggestSection.style.display = 'none';
+    }
+}
+window.checkBandCalendarStatusForRehearsal = checkBandCalendarStatusForRehearsal;
+
 // Add individual invitee by email
 function addRehearsalInvitee() {
-    const input = document.getElementById('inviteeEmail');
+    const input = document.getElementById('rehearsalInviteEmail');
     const email = input.value.trim();
 
     if (!email) return;
@@ -3463,7 +3537,7 @@ window.removeRehearsalInvitee = removeRehearsalInvitee;
 
 // Render invitees list
 function renderInviteesList() {
-    const container = document.getElementById('inviteesList');
+    const container = document.getElementById('rehearsalInviteesList');
     if (!container) return;
 
     if (window.currentRehearsalInvitees.length === 0) {
@@ -3570,7 +3644,7 @@ async function createRehearsal() {
     let invitedMembers = [];
 
     if (window.currentRehearsalInviteMode === 'band') {
-        bandId = document.getElementById('rehearsalBand').value;
+        bandId = document.getElementById('rehearsalBandSelect').value;
         if (bandId) {
             const bandDoc = await getDoc(doc(db, "bands", bandId));
             if (bandDoc.exists()) {
@@ -3628,9 +3702,15 @@ async function createRehearsal() {
 
         // Handle recurring rehearsals
         if (isRecurring) {
-            const frequency = document.getElementById('recurringFrequency').value;
-            const count = parseInt(document.getElementById('recurringCount').value) || 4;
-            await createRecurringRehearsals(docRef.id, rehearsalData, frequency, count);
+            const frequency = document.getElementById('rehearsalFrequency').value;
+            const endDateStr = document.getElementById('rehearsalRecurringEnd').value;
+            if (endDateStr) {
+                const startDate = new Date(date + 'T00:00:00');
+                const endDate = new Date(endDateStr + 'T00:00:00');
+                const dayIncrement = frequency === 'weekly' ? 7 : frequency === 'biweekly' ? 14 : 30;
+                const count = Math.floor((endDate - startDate) / (dayIncrement * 24 * 60 * 60 * 1000)) + 1;
+                await createRecurringRehearsals(docRef.id, rehearsalData, frequency, Math.max(count, 1));
+            }
         }
 
         // Send email notifications
@@ -3973,7 +4053,7 @@ async function showRehearsalDetail(rehearsalId) {
         window.currentRehearsalData = rehearsal;
 
         // Update UI elements
-        document.getElementById('rehearsalDetailTitle').textContent = rehearsal.name;
+        document.getElementById('rehearsalDetailName').textContent = rehearsal.name;
         document.getElementById('rehearsalDetailBand').textContent = rehearsal.bandName || '';
         document.getElementById('rehearsalDetailBand').style.display = rehearsal.bandName ? 'block' : 'none';
 
