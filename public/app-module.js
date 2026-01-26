@@ -1,7 +1,7 @@
 // Import Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import { getFirestore, collection, addDoc, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js";
 import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 
 // Your Firebase configuration
@@ -281,10 +281,10 @@ window.signInWithGoogleAndCheckProfile = async function() {
 function updateAuthUI(user) {
     const userInfo = document.getElementById('userInfo');
     const signInPromptHome = document.getElementById('signInPromptHome');
-    
+
     if (user) {
-        // Use profile photo if available, otherwise Google photo
-        const photoURL = window.currentUserProfile?.photoURL || user.photoURL || '';
+        // Use primary profile photo if available, otherwise Google photo
+        const photoURL = getPrimaryPhotoURL(window.currentUserProfile) || user.photoURL || '';
         const displayName = window.currentUserProfile?.name || user.displayName || user.email;
         
         if (userInfo) {
@@ -475,8 +475,8 @@ function updateMenuAuth() {
     const menuProfileDivider = document.getElementById('menuProfileDivider');
     
     if (user) {
-        // Use profile photo if available, otherwise Google photo
-        const photoURL = window.currentUserProfile?.photoURL || user.photoURL || '';
+        // Use primary profile photo if available, otherwise Google photo
+        const photoURL = getPrimaryPhotoURL(window.currentUserProfile) || user.photoURL || '';
         const displayName = window.currentUserProfile?.name || user.displayName || '';
         
         menuUserInfo.innerHTML = `
@@ -560,22 +560,18 @@ function showProfileSetup() {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById('screenProfileSetup').classList.add('active');
     hideGlobalHeader();
-    
-    // Reset photo state
-    const avatar = document.getElementById('profileSetupAvatar');
-    avatar.style.backgroundImage = '';
-    avatar.classList.remove('has-photo');
-    avatar.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>';
-    
+
+    // Reset photo state for multi-photo management
+    window.pendingProfilePhotos = [];
+    window.photosToDelete = [];
+
     // Pre-fill with Google account info
     if (window.currentUser) {
         document.getElementById('profileName').value = window.currentUser.displayName || '';
-        if (window.currentUser.photoURL) {
-            avatar.textContent = '';
-            avatar.style.backgroundImage = `url(${window.currentUser.photoURL})`;
-            avatar.classList.add('has-photo');
-        }
     }
+
+    // Initialize photo grid (empty for new profiles)
+    updatePhotoManagementUI('setup');
     
     // Check if calendar is already connected
     const setupCalStatus = document.getElementById('setupCalendarStatus');
@@ -734,16 +730,21 @@ async function saveProfile() {
             alert('Please sign in first');
             return;
         }
-        
-        // Upload photo if one was selected
+
+        // Upload photos if any were selected
+        let photos = [];
         let photoURL = user.photoURL || null;
-        if (window.pendingProfilePhoto) {
-            const uploadedURL = await uploadProfilePhoto(user.uid);
-            if (uploadedURL) {
-                photoURL = uploadedURL;
+        if (window.pendingProfilePhotos.length > 0) {
+            photos = await uploadProfilePhotos(user.uid);
+            // Set photoURL to primary photo for backward compatibility
+            const primary = photos.find(p => p.isPrimary);
+            if (primary) {
+                photoURL = primary.url;
+            } else if (photos.length > 0) {
+                photoURL = photos[0].url;
             }
         }
-        
+
         const profileData = {
             name,
             email: user.email,
@@ -752,18 +753,23 @@ async function saveProfile() {
             instruments,
             discoverable,
             photoURL,
+            photos,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
         };
-        
+
         await setDoc(doc(db, "users", user.uid), profileData);
-        
+
         window.currentUserProfile = profileData;
         console.log("Profile saved successfully");
-        
+
+        // Reset photo state
+        window.pendingProfilePhotos = [];
+        window.photosToDelete = [];
+
         // Update menu with new profile info
         updateMenuAuth();
-        
+
         // Check if there's a pending band to join
         if (window.pendingBandJoin) {
             const bandId = window.pendingBandJoin;
@@ -777,7 +783,7 @@ async function saveProfile() {
             // Go to home screen
             showHomeScreen();
         }
-        
+
     } catch (error) {
         console.error("Error saving profile:", error);
         alert("Error saving profile: " + error.message);
@@ -797,13 +803,11 @@ async function showEditProfile() {
     document.getElementById('screenEditProfile').classList.add('active');
     hideGlobalHeader();
     window.history.pushState({}, '', '/edit-profile');
-    
-    // Reset photo state
-    const avatar = document.getElementById('editProfileAvatar');
-    avatar.style.backgroundImage = '';
-    avatar.classList.remove('has-photo');
-    avatar.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>';
-    
+
+    // Reset photo state for multi-photo management
+    window.pendingProfilePhotos = [];
+    window.photosToDelete = [];
+
     // Load current profile data
     const user = window.currentUser;
     if (!user) {
@@ -811,14 +815,30 @@ async function showEditProfile() {
         showHomeScreen();
         return;
     }
-    
-    // Helper to load avatar
-    function loadAvatar(url) {
-        if (url) {
-            avatar.textContent = '';
-            avatar.style.backgroundImage = `url(${url})`;
-            avatar.classList.add('has-photo');
+
+    // Helper to load photos into pending array
+    function loadPhotos(profile) {
+        window.pendingProfilePhotos = [];
+        if (profile?.photos && profile.photos.length > 0) {
+            // Load from photos array
+            profile.photos.forEach(photo => {
+                window.pendingProfilePhotos.push({
+                    url: photo.url,
+                    isPrimary: photo.isPrimary,
+                    isNew: false,
+                    storagePath: photo.storagePath,
+                    uploadedAt: photo.uploadedAt
+                });
+            });
+        } else if (profile?.photoURL) {
+            // Backward compatibility: single photoURL
+            window.pendingProfilePhotos.push({
+                url: profile.photoURL,
+                isPrimary: true,
+                isNew: false
+            });
         }
+        updatePhotoManagementUI('edit');
     }
     
     // Check for pending form data (saved before OAuth redirect)
@@ -843,13 +863,8 @@ async function showEditProfile() {
             });
         }
         
-        // Load avatar from profile or Google
-        const profile = window.currentUserProfile;
-        if (profile?.photoURL) {
-            loadAvatar(profile.photoURL);
-        } else if (user.photoURL) {
-            loadAvatar(user.photoURL);
-        }
+        // Load photos from profile
+        loadPhotos(window.currentUserProfile);
         
         // Calendar is now connected
         updateCalendarUI(true);
@@ -868,12 +883,12 @@ async function showEditProfile() {
         document.getElementById('editProfileBio').value = profile.bio || '';
         document.getElementById('editProfileDiscoverable').checked = profile.discoverable !== false;
         setSelectedInstruments('editInstrumentGrid', profile.instruments, 'editOtherInstrument');
-        loadAvatar(profile.photoURL);
-        
+        loadPhotos(profile);
+
         // Load new fields
         document.getElementById('editProfileInfluences').value = profile.influences || '';
         document.getElementById('editProfileWorkingOn').value = profile.workingOn || '';
-        
+
         // Load social links
         const links = profile.socialLinks || {};
         document.getElementById('editProfileInstagram').value = links.instagram || '';
@@ -882,19 +897,20 @@ async function showEditProfile() {
         document.getElementById('editProfileBandcamp').value = links.bandcamp || '';
         document.getElementById('editProfileSoundCloud').value = links.soundcloud || '';
         document.getElementById('editProfileLinktree').value = links.linktree || '';
-        
+
         // Load genre tags
         window.genreTags = profile.genres || [];
         renderTags('genre');
-        
+
         // Show calendar connection status
         updateCalendarUI(profile.calendarConnected);
     } else {
         // No profile, use Google account info
         document.getElementById('editProfileName').value = user.displayName || '';
-        loadAvatar(user.photoURL);
+        // No photos yet, just show empty grid
+        updatePhotoManagementUI('edit');
         updateCalendarUI(false);
-        
+
         // Clear new fields
         document.getElementById('editProfileInfluences').value = '';
         document.getElementById('editProfileWorkingOn').value = '';
@@ -1035,16 +1051,34 @@ async function updateProfile() {
             alert('Please sign in first');
             return;
         }
-        
-        // Upload photo if one was selected
+
+        // Upload photos if any pending
+        let photos = [];
         let photoURL = window.currentUserProfile?.photoURL || user.photoURL || null;
-        if (window.pendingProfilePhoto) {
-            const uploadedURL = await uploadProfilePhoto(user.uid);
-            if (uploadedURL) {
-                photoURL = uploadedURL;
+
+        if (window.pendingProfilePhotos.length > 0) {
+            photos = await uploadProfilePhotos(user.uid);
+            // Set photoURL to primary photo for backward compatibility
+            const primary = photos.find(p => p.isPrimary);
+            if (primary) {
+                photoURL = primary.url;
+            } else if (photos.length > 0) {
+                photoURL = photos[0].url;
             }
+        } else if (window.photosToDelete.length > 0) {
+            // Only deletions, no new photos - still need to process deletions
+            photos = await uploadProfilePhotos(user.uid);
+            if (photos.length > 0) {
+                const primary = photos.find(p => p.isPrimary);
+                photoURL = primary ? primary.url : photos[0].url;
+            } else {
+                photoURL = null;
+            }
+        } else {
+            // No changes to photos, keep existing
+            photos = window.currentUserProfile?.photos || [];
         }
-        
+
         const profileData = {
             name,
             email: user.email,
@@ -1053,29 +1087,34 @@ async function updateProfile() {
             instruments,
             discoverable,
             photoURL,
+            photos,
             genres,
             influences,
             workingOn,
             socialLinks,
             updatedAt: serverTimestamp()
         };
-        
+
         // Add createdAt if this is a new profile
         if (!window.currentUserProfile) {
             profileData.createdAt = serverTimestamp();
         }
-        
+
         // Use setDoc with merge to create or update
         await setDoc(doc(db, "users", user.uid), profileData, { merge: true });
-        
+
         window.currentUserProfile = { ...window.currentUserProfile, ...profileData };
         console.log("Profile updated successfully");
-        
+
+        // Reset photo state
+        window.pendingProfilePhotos = [];
+        window.photosToDelete = [];
+
         // Update menu with new profile info
         updateMenuAuth();
-        
+
         showHomeScreen();
-        
+
     } catch (error) {
         console.error("Error updating profile:", error);
         alert("Error updating profile: " + error.message);
@@ -1086,23 +1125,400 @@ window.updateProfile = updateProfile;
 // Profile photo upload storage
 window.pendingProfilePhoto = null;
 
+// Multi-photo support
+window.pendingProfilePhotos = []; // Array of {file, dataUrl, isNew, isPrimary, storagePath?}
+window.photosToDelete = []; // Storage paths of photos to delete on save
+window.currentCarouselIndex = 0;
+
+// Helper to get primary photo URL from profile (backward compatible)
+function getPrimaryPhotoURL(profile) {
+    if (!profile) return null;
+    // If profile has photos array, find primary
+    if (profile.photos && profile.photos.length > 0) {
+        const primary = profile.photos.find(p => p.isPrimary);
+        return primary ? primary.url : profile.photos[0].url;
+    }
+    // Fall back to photoURL for backward compatibility
+    return profile.photoURL || null;
+}
+window.getPrimaryPhotoURL = getPrimaryPhotoURL;
+
+// Upload multiple profile photos and manage deletions
+async function uploadProfilePhotos(userId) {
+    const uploadedPhotos = [];
+
+    // First, delete any photos marked for deletion
+    for (const storagePath of window.photosToDelete) {
+        try {
+            const fileRef = storageRef(storage, storagePath);
+            await deleteObject(fileRef);
+            console.log('Deleted photo:', storagePath);
+        } catch (error) {
+            console.warn('Could not delete photo:', storagePath, error);
+        }
+    }
+    window.photosToDelete = [];
+
+    // Upload new photos and keep existing ones
+    for (const photo of window.pendingProfilePhotos) {
+        if (photo.isNew && photo.file) {
+            // Upload new photo
+            try {
+                const storagePath = `profile-photos/${userId}/${Date.now()}_${photo.file.name}`;
+                const fileRef = storageRef(storage, storagePath);
+                await uploadBytes(fileRef, photo.file);
+                const downloadURL = await getDownloadURL(fileRef);
+                uploadedPhotos.push({
+                    url: downloadURL,
+                    isPrimary: photo.isPrimary,
+                    uploadedAt: new Date().toISOString(),
+                    storagePath: storagePath
+                });
+                console.log('Uploaded photo:', storagePath);
+            } catch (error) {
+                console.error('Error uploading photo:', error);
+            }
+        } else if (!photo.isNew) {
+            // Keep existing photo - only include defined fields
+            const existingPhoto = {
+                url: photo.url,
+                isPrimary: photo.isPrimary || false
+            };
+            // Only add optional fields if they have values
+            if (photo.uploadedAt) existingPhoto.uploadedAt = photo.uploadedAt;
+            if (photo.storagePath) existingPhoto.storagePath = photo.storagePath;
+            uploadedPhotos.push(existingPhoto);
+        }
+    }
+
+    // Ensure exactly one photo is primary
+    if (uploadedPhotos.length > 0) {
+        const hasPrimary = uploadedPhotos.some(p => p.isPrimary);
+        if (!hasPrimary) {
+            uploadedPhotos[0].isPrimary = true;
+        }
+    }
+
+    window.pendingProfilePhotos = [];
+    return uploadedPhotos;
+}
+
+// Update photo management UI for setup/edit screens
+function updatePhotoManagementUI(mode) {
+    const containerId = mode === 'setup' ? 'setupPhotoGrid' : 'editPhotoGrid';
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    let html = '';
+
+    // Render existing photos
+    window.pendingProfilePhotos.forEach((photo, index) => {
+        const isPrimary = photo.isPrimary;
+        html += `
+            <div class="photo-grid-item ${isPrimary ? 'is-primary' : ''}">
+                <img src="${photo.dataUrl || photo.url}" alt="Photo ${index + 1}">
+                ${isPrimary ? '<span class="photo-primary-badge">Primary</span>' : ''}
+                <div class="photo-actions-overlay">
+                    ${!isPrimary ? `<button class="photo-action-btn star-btn" onclick="setPhotoPrimary(${index}, '${mode}')" title="Set as primary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    </button>` : ''}
+                    <button class="photo-action-btn delete-btn" onclick="deletePhoto(${index}, '${mode}')" title="Delete photo">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+
+    // Add upload button if under limit (5 photos max)
+    if (window.pendingProfilePhotos.length < 5) {
+        html += `
+            <div class="photo-grid-item add-photo" onclick="triggerPhotoUpload('${mode}')">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                <span>Add Photo</span>
+            </div>
+        `;
+    }
+
+    container.innerHTML = html;
+}
+window.updatePhotoManagementUI = updatePhotoManagementUI;
+
+// Set a photo as primary
+function setPhotoPrimary(index, mode) {
+    window.pendingProfilePhotos.forEach((photo, i) => {
+        photo.isPrimary = (i === index);
+    });
+    updatePhotoManagementUI(mode);
+}
+window.setPhotoPrimary = setPhotoPrimary;
+
+// Delete a photo
+function deletePhoto(index, mode) {
+    const photo = window.pendingProfilePhotos[index];
+    if (photo && photo.storagePath && !photo.isNew) {
+        // Mark for deletion from storage on save
+        window.photosToDelete.push(photo.storagePath);
+    }
+    window.pendingProfilePhotos.splice(index, 1);
+
+    // If we deleted the primary, make first remaining photo primary
+    if (photo.isPrimary && window.pendingProfilePhotos.length > 0) {
+        window.pendingProfilePhotos[0].isPrimary = true;
+    }
+
+    updatePhotoManagementUI(mode);
+}
+window.deletePhoto = deletePhoto;
+
+// Trigger file upload input
+function triggerPhotoUpload(mode) {
+    const inputId = mode === 'setup' ? 'profilePhotoInput' : 'editProfilePhotoInput';
+    document.getElementById(inputId).click();
+}
+window.triggerPhotoUpload = triggerPhotoUpload;
+
+// Initialize photo carousel on profile view
+function initPhotoCarousel(photos) {
+    const carousel = document.getElementById('photoCarousel');
+    const carouselTrack = document.getElementById('carouselTrack');
+    const carouselIndicators = document.getElementById('carouselIndicators');
+    const carouselPrev = document.getElementById('carouselPrev');
+    const carouselNext = document.getElementById('carouselNext');
+
+    if (!carouselTrack) return;
+
+    window.currentCarouselIndex = 0;
+    window.viewerPhotos = photos || []; // Store for photo viewer
+
+    if (!photos || photos.length === 0) {
+        // No photos - show placeholder
+        carouselTrack.innerHTML = `
+            <div class="carousel-slide active">
+                <div class="profile-avatar-placeholder" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+                </div>
+            </div>
+        `;
+        carouselIndicators.innerHTML = '';
+        if (carouselPrev) carouselPrev.style.display = 'none';
+        if (carouselNext) carouselNext.style.display = 'none';
+        return;
+    }
+
+    // Render slides
+    carouselTrack.innerHTML = photos.map((photo, index) => `
+        <div class="carousel-slide ${index === 0 ? 'active' : ''}" data-index="${index}">
+            <img src="${photo.url}" alt="Profile photo ${index + 1}" onerror="this.parentElement.innerHTML='<div class=\\'carousel-slide-placeholder\\'><svg width=\\'48\\' height=\\'48\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'1.5\\'><circle cx=\\'12\\' cy=\\'8\\' r=\\'4\\'/><path d=\\'M4 20c0-4 4-6 8-6s8 2 8 6\\'/></svg></div>'">
+        </div>
+    `).join('');
+
+    // Render indicators (bar style at top)
+    if (photos.length > 1) {
+        carouselIndicators.innerHTML = photos.map((_, index) => `
+            <button class="carousel-dot ${index === 0 ? 'active' : ''}" onclick="event.stopPropagation(); carouselGoTo(${index})" aria-label="Go to photo ${index + 1}"></button>
+        `).join('');
+        if (carouselPrev) carouselPrev.style.display = 'flex';
+        if (carouselNext) carouselNext.style.display = 'flex';
+    } else {
+        carouselIndicators.innerHTML = '';
+        if (carouselPrev) carouselPrev.style.display = 'none';
+        if (carouselNext) carouselNext.style.display = 'none';
+    }
+
+    // Click to open full-screen viewer
+    if (carousel) {
+        carousel.onclick = function(e) {
+            // Don't open viewer if clicking nav buttons
+            if (e.target.closest('.carousel-nav') || e.target.closest('.carousel-dot')) {
+                return;
+            }
+            openPhotoViewer(window.currentCarouselIndex);
+        };
+    }
+
+    // Set up touch handlers for swipe
+    setupCarouselTouch();
+}
+window.initPhotoCarousel = initPhotoCarousel;
+
+// Navigate carousel
+function carouselNavigate(direction) {
+    const slides = document.querySelectorAll('.carousel-slide');
+    if (slides.length <= 1) return;
+
+    const totalSlides = slides.length;
+    window.currentCarouselIndex = (window.currentCarouselIndex + direction + totalSlides) % totalSlides;
+
+    updateCarouselPosition();
+}
+window.carouselNavigate = carouselNavigate;
+
+// Go to specific carousel slide
+function carouselGoTo(index) {
+    window.currentCarouselIndex = index;
+    updateCarouselPosition();
+}
+window.carouselGoTo = carouselGoTo;
+
+// Update carousel visual position
+function updateCarouselPosition() {
+    const track = document.getElementById('carouselTrack');
+    const slides = document.querySelectorAll('.carousel-slide');
+    const dots = document.querySelectorAll('.carousel-dot');
+
+    if (!track) return;
+
+    // Update slide positions
+    track.style.transform = `translateX(-${window.currentCarouselIndex * 100}%)`;
+
+    // Update active states
+    slides.forEach((slide, i) => {
+        slide.classList.toggle('active', i === window.currentCarouselIndex);
+    });
+    dots.forEach((dot, i) => {
+        dot.classList.toggle('active', i === window.currentCarouselIndex);
+    });
+}
+
+// Set up touch handlers for carousel swipe
+function setupCarouselTouch() {
+    const carousel = document.getElementById('photoCarousel');
+    if (!carousel) return;
+
+    // Prevent adding duplicate listeners
+    if (carousel.dataset.touchSetup) return;
+    carousel.dataset.touchSetup = 'true';
+
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    carousel.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    carousel.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        const swipeThreshold = 50;
+        const diff = touchStartX - touchEndX;
+
+        if (Math.abs(diff) > swipeThreshold) {
+            if (diff > 0) {
+                carouselNavigate(1);
+            } else {
+                carouselNavigate(-1);
+            }
+        }
+    }, { passive: true });
+}
+
+// Photo viewer state
+window.viewerPhotos = [];
+window.viewerIndex = 0;
+
+// Open photo viewer
+function openPhotoViewer(index) {
+    if (!window.viewerPhotos || window.viewerPhotos.length === 0) return;
+
+    window.viewerIndex = (typeof index === 'number') ? index : (window.currentCarouselIndex || 0);
+    const photo = window.viewerPhotos[window.viewerIndex];
+    if (!photo) return;
+
+    const overlay = document.getElementById('photoViewerOverlay');
+    const image = document.getElementById('photoViewerImage');
+    const counter = document.getElementById('photoViewerCounter');
+    const prevBtn = document.getElementById('viewerPrev');
+    const nextBtn = document.getElementById('viewerNext');
+
+    if (!overlay || !image) return;
+
+    image.src = photo.url;
+    if (counter) counter.textContent = `${window.viewerIndex + 1} / ${window.viewerPhotos.length}`;
+
+    // Show/hide nav buttons
+    if (window.viewerPhotos.length <= 1) {
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+        counter.style.display = 'none';
+    } else {
+        prevBtn.style.display = 'flex';
+        nextBtn.style.display = 'flex';
+        counter.style.display = 'block';
+    }
+
+    overlay.classList.add('visible');
+    document.body.style.overflow = 'hidden';
+}
+window.openPhotoViewer = openPhotoViewer;
+
+// Close photo viewer
+function closePhotoViewer(event) {
+    // If event exists and target is not the overlay itself, don't close
+    if (event && event.target !== event.currentTarget && !event.target.classList.contains('photo-viewer-close')) {
+        return;
+    }
+
+    const overlay = document.getElementById('photoViewerOverlay');
+    overlay.classList.remove('visible');
+    document.body.style.overflow = '';
+}
+window.closePhotoViewer = closePhotoViewer;
+
+// Navigate in photo viewer
+function viewerNavigate(direction, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+
+    const total = window.viewerPhotos.length;
+    if (total <= 1) return;
+
+    window.viewerIndex = (window.viewerIndex + direction + total) % total;
+
+    const photo = window.viewerPhotos[window.viewerIndex];
+    const image = document.getElementById('photoViewerImage');
+    const counter = document.getElementById('photoViewerCounter');
+
+    image.src = photo.url;
+    counter.textContent = `${window.viewerIndex + 1} / ${window.viewerPhotos.length}`;
+}
+window.viewerNavigate = viewerNavigate;
+
+// Keyboard navigation for photo viewer
+document.addEventListener('keydown', (e) => {
+    const overlay = document.getElementById('photoViewerOverlay');
+    if (!overlay || !overlay.classList.contains('visible')) return;
+
+    if (e.key === 'Escape') {
+        closePhotoViewer();
+    } else if (e.key === 'ArrowLeft') {
+        viewerNavigate(-1);
+    } else if (e.key === 'ArrowRight') {
+        viewerNavigate(1);
+    }
+});
+
 // Handle profile photo selection
 async function handleProfilePhotoSelect(event, mode) {
     let file = event.target.files[0];
     if (!file) return;
-    
-    const avatarId = mode === 'setup' ? 'profileSetupAvatar' : 'editProfileAvatar';
-    const avatar = document.getElementById(avatarId);
-    
-    // Show loading state
-    avatar.classList.remove('has-photo');
-    avatar.style.backgroundImage = '';
-    avatar.textContent = '⏳';
-    
+
+    // Reset file input so same file can be selected again
+    event.target.value = '';
+
+    // Check if at limit
+    if (window.pendingProfilePhotos.length >= 5) {
+        alert('Maximum 5 photos allowed');
+        return;
+    }
+
     // Check if HEIC and convert
-    const isHeic = file.type === 'image/heic' || file.type === 'image/heif' || 
+    const isHeic = file.type === 'image/heic' || file.type === 'image/heif' ||
                    file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
-    
+
     if (isHeic) {
         try {
             console.log('Converting HEIC to PNG...');
@@ -1117,42 +1533,50 @@ async function handleProfilePhotoSelect(event, mode) {
         } catch (error) {
             console.error('HEIC conversion failed:', error);
             alert('Could not convert HEIC image. Please try a JPEG or PNG.');
-            avatar.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>';
             return;
         }
     }
-    
+
     // Validate file type
     if (!file.type.startsWith('image/')) {
         alert('Please select an image file');
-        avatar.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>';
         return;
     }
-    
+
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
         alert('Image must be less than 5MB');
-        avatar.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>';
         return;
     }
-    
-    // Show preview
+
+    // Read as data URL for preview
     const reader = new FileReader();
     reader.onload = function(e) {
-        console.log('FileReader loaded, setting preview');
-        avatar.textContent = '';
-        avatar.style.backgroundImage = `url(${e.target.result})`;
-        avatar.classList.add('has-photo');
-        console.log('Preview set, has-photo class added');
+        console.log('FileReader loaded, adding to photos array');
+
+        // Determine if this should be primary (first photo)
+        const isPrimary = window.pendingProfilePhotos.length === 0;
+
+        // Add to pending photos array
+        window.pendingProfilePhotos.push({
+            file: file,
+            dataUrl: e.target.result,
+            isNew: true,
+            isPrimary: isPrimary
+        });
+
+        // Update the UI
+        updatePhotoManagementUI(mode);
+        console.log('Photo added, total:', window.pendingProfilePhotos.length);
     };
     reader.onerror = function(e) {
         console.error('FileReader error:', e);
-        avatar.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>';
+        alert('Error reading image file');
     };
     reader.readAsDataURL(file);
     console.log('Reading file as data URL:', file.name, file.type);
-    
-    // Store file for upload when saving
+
+    // Also store in legacy variable for backward compatibility
     window.pendingProfilePhoto = file;
 }
 window.handleProfilePhotoSelect = handleProfilePhotoSelect;
@@ -1288,11 +1712,13 @@ async function searchMusicians() {
             return;
         }
         
-        resultsDiv.innerHTML = musicians.map(m => `
+        resultsDiv.innerHTML = musicians.map(m => {
+            const photoURL = getPrimaryPhotoURL(m);
+            return `
             <div class="musician-card" onclick="viewMusicianProfile('${m.id}')">
                 <div class="musician-card-header">
-                    ${m.photoURL 
-                        ? `<img src="${m.photoURL}" class="musician-card-avatar" onerror="this.outerHTML='<div class=\\'musician-card-avatar-placeholder\\'><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>'">`
+                    ${photoURL
+                        ? `<img src="${photoURL}" class="musician-card-avatar" onerror="this.outerHTML='<div class=\\'musician-card-avatar-placeholder\\'><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>'">`
                         : `<div class="musician-card-avatar-placeholder"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>`
                     }
                     <div class="musician-card-info">
@@ -1304,7 +1730,7 @@ async function searchMusicians() {
                     ${(m.instruments || []).map(i => `<span class="instrument-tag">${getInstrumentLabel(i)}</span>`).join('')}
                 </div>
             </div>
-        `).join('');
+        `;}).join('');
         
     } catch (error) {
         console.error("Error searching musicians:", error);
@@ -1344,9 +1770,13 @@ function escapeHtml(text) {
 
 // View a musician's profile
 async function viewMusicianProfile(userId) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    // Clear all screens including inline styles
+    document.querySelectorAll('.screen').forEach(s => {
+        s.classList.remove('active');
+        s.style.display = '';  // Clear inline display style
+    });
     document.getElementById('screenMusicianProfile').classList.add('active');
-    
+
     // Set URL - use /profile for own profile, /musician/id for others
     const isOwnProfile = window.currentUser && window.currentUser.uid === userId;
     if (isOwnProfile) {
@@ -1354,10 +1784,10 @@ async function viewMusicianProfile(userId) {
     } else {
         window.history.pushState({}, '', '/musician/' + userId);
     }
-    
+
     // Store for contact
     window.viewingMusicianId = userId;
-    
+
     try {
         const profileRef = doc(db, "users", userId);
         const profileSnap = await getDoc(profileRef);
@@ -1369,19 +1799,22 @@ async function viewMusicianProfile(userId) {
         }
         
         const profile = profileSnap.data();
-        
+
         document.getElementById('viewProfileName').textContent = profile.name || 'Unknown';
         document.getElementById('viewProfileLocation').textContent = profile.location ? `${profile.location}` : '';
-        
-        if (profile.photoURL) {
-            document.getElementById('viewProfileAvatar').src = profile.photoURL;
-            document.getElementById('viewProfileAvatar').style.display = 'block';
-            document.getElementById('viewProfileAvatarPlaceholder').style.display = 'none';
-        } else {
-            document.getElementById('viewProfileAvatar').style.display = 'none';
-            document.getElementById('viewProfileAvatarPlaceholder').style.display = 'flex';
+
+        // Initialize photo carousel
+        let photos = profile.photos || [];
+        // Backward compatibility: if no photos array but has photoURL, create single photo array
+        if (photos.length === 0 && profile.photoURL) {
+            photos = [{ url: profile.photoURL, isPrimary: true }];
         }
-        
+        try {
+            initPhotoCarousel(photos);
+        } catch (carouselError) {
+            console.error('Error initializing carousel:', carouselError);
+        }
+
         const instrumentsDiv = document.getElementById('viewProfileInstruments');
         instrumentsDiv.innerHTML = (profile.instruments || [])
             .map(i => `<span class="instrument-tag">${getInstrumentLabel(i)}</span>`)
@@ -3094,10 +3527,11 @@ function createMusicianCard(musician) {
     // Get genres (if we add this field later)
     const genres = musician.genres || [];
     
-    // Avatar
+    // Avatar - use primary photo from photos array
     let avatarContent = '';
-    if (musician.photoURL) {
-        avatarContent = `<img src="${musician.photoURL}" alt="${escapeHtml(musician.name)}">`;
+    const photoURL = getPrimaryPhotoURL(musician);
+    if (photoURL) {
+        avatarContent = `<img src="${photoURL}" alt="${escapeHtml(musician.name)}">`;
     } else {
         avatarContent = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>';
     }

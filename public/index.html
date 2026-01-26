@@ -20,7 +20,7 @@
     <meta property="og:image" content="https://tempocal.app/tempo-og.png">
     <meta name="twitter:card" content="summary_large_image">
     
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/styles.css?v=2">
 </head>
 <body class="has-header">
     <!-- Global Header (shown when viewing a linked gig) -->
@@ -31,7 +31,22 @@
     
     <!-- Menu Overlay -->
     <div class="menu-overlay" id="menuOverlay" onclick="toggleMenu()"></div>
-    
+
+    <!-- Photo Viewer Overlay -->
+    <div class="photo-viewer-overlay" id="photoViewerOverlay" onclick="closePhotoViewer(event)">
+        <div class="photo-viewer-content">
+            <button class="photo-viewer-close" onclick="closePhotoViewer()">&times;</button>
+            <button class="photo-viewer-nav prev" id="viewerPrev" onclick="viewerNavigate(-1, event)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <img id="photoViewerImage" src="" alt="Full size photo">
+            <button class="photo-viewer-nav next" id="viewerNext" onclick="viewerNavigate(1, event)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            <div class="photo-viewer-counter" id="photoViewerCounter">1 / 1</div>
+        </div>
+    </div>
+
     <!-- Availability Calendar Modal -->
     <div class="avail-modal-overlay" id="availModalOverlay">
         <div class="avail-modal">
@@ -236,6 +251,7 @@
                     <button class="filter-pill" data-filter="bass" onclick="setDiscoveryFilter('bass')">Bass</button>
                     <button class="filter-pill" data-filter="keys" onclick="setDiscoveryFilter('keys')">Keys</button>
                     <button class="filter-pill" data-filter="vocals" onclick="setDiscoveryFilter('vocals')">Vocals</button>
+                    <div style="flex-shrink: 0; width: 20px;"></div>
                 </div>
             </div>
             
@@ -311,11 +327,19 @@
             <p class="tagline">Set up your profile</p>
             
             <div class="card">
-                <h2>Profile Photo</h2>
-                <div class="profile-avatar-section">
-                    <div id="profileSetupAvatar" class="profile-avatar-circle"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>
+                <h2>Profile Photos</h2>
+                <div class="profile-photos-manager">
+                    <p class="helper-text">Add up to 5 photos. First photo is your primary.</p>
+                    <div class="photo-grid" id="setupPhotoGrid">
+                        <div class="photo-grid-item add-photo" onclick="triggerPhotoUpload('setup')">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            <span>Add Photo</span>
+                        </div>
+                    </div>
                     <input type="file" id="profilePhotoInput" accept="image/*" style="display:none" onchange="handleProfilePhotoSelect(event, 'setup')">
-                    <button class="btn btn-secondary" style="margin-top: 12px; padding: 8px 16px; font-size: 13px;" onclick="document.getElementById('profilePhotoInput').click()">Upload Photo</button>
                 </div>
             </div>
             
@@ -414,11 +438,19 @@
             <p class="tagline">Edit your profile</p>
             
             <div class="card">
-                <h2>Profile Photo</h2>
-                <div class="profile-avatar-section">
-                    <div id="editProfileAvatar" class="profile-avatar-circle"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>
+                <h2>Profile Photos</h2>
+                <div class="profile-photos-manager">
+                    <p class="helper-text">Add up to 5 photos. Tap the star to set primary.</p>
+                    <div class="photo-grid" id="editPhotoGrid">
+                        <div class="photo-grid-item add-photo" onclick="triggerPhotoUpload('edit')">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            <span>Add Photo</span>
+                        </div>
+                    </div>
                     <input type="file" id="editProfilePhotoInput" accept="image/*" style="display:none" onchange="handleProfilePhotoSelect(event, 'edit')">
-                    <button class="btn btn-secondary" style="margin-top: 12px; padding: 8px 16px; font-size: 13px;" onclick="document.getElementById('editProfilePhotoInput').click()">Change Photo</button>
                 </div>
             </div>
             
@@ -613,8 +645,22 @@
             <div class="logo"><img src="/tempo-logo.svg" alt="Tempo" class="logo-img"></div>
             
             <div class="profile-view-header">
-                <img id="viewProfileAvatar" class="profile-view-avatar" src="" style="display:none;">
-                <div id="viewProfileAvatarPlaceholder" class="profile-avatar-placeholder" style="width:100px;height:100px;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></div>
+                <div class="photo-carousel" id="photoCarousel">
+                    <div class="carousel-track" id="carouselTrack">
+                        <div class="carousel-slide active">
+                            <div class="profile-avatar-placeholder" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+                                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="carousel-nav prev" id="carouselPrev" onclick="carouselNavigate(-1)" style="display:none;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                    </button>
+                    <button class="carousel-nav next" id="carouselNext" onclick="carouselNavigate(1)" style="display:none;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
+                    <div class="carousel-indicators" id="carouselIndicators"></div>
+                </div>
                 <div class="profile-view-name" id="viewProfileName">Loading...</div>
                 <div class="profile-view-location" id="viewProfileLocation"></div>
                 <div class="profile-view-instruments" id="viewProfileInstruments"></div>
