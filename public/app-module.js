@@ -1,6 +1,6 @@
 // Import Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import { getFirestore, collection, addDoc, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, query, where, serverTimestamp, onSnapshot, orderBy } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js";
 import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 
@@ -250,6 +250,19 @@ onAuthStateChanged(auth, async (user) => {
     } else if (user && window.pendingNewRehearsal) {
         window.pendingNewRehearsal = false;
         showCreateRehearsal();
+    } else if (user && window.pendingShowConnections) {
+        window.pendingShowConnections = false;
+        showConnections();
+    } else if (user && window.pendingShowMessages) {
+        window.pendingShowMessages = false;
+        showConversations();
+    } else if (user && window.pendingChatConversationId) {
+        const conversationId = window.pendingChatConversationId;
+        window.pendingChatConversationId = null;
+        // Extract other user ID from conversation ID
+        const parts = conversationId.split('_');
+        const otherUserId = parts.find(p => p !== user.uid);
+        if (otherUserId) showChat(conversationId, otherUserId);
     } else if (user && (window.pendingRehearsalDetail || sessionStorage.getItem('pendingRehearsalDetail'))) {
         const rId = window.pendingRehearsalDetail || sessionStorage.getItem('pendingRehearsalDetail');
         window.pendingRehearsalDetail = null;
@@ -318,8 +331,13 @@ window.addEventListener('popstate', function(event) {
     const path = window.location.pathname;
     
     if (path === '/' || path === '') {
+        // Clean up any active chat listener
+        if (window.unsubscribeFromMessages) unsubscribeFromMessages();
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         document.getElementById('screen0').classList.add('active');
+        // Restore header and tab bar
+        document.getElementById('globalHeader').style.display = '';
+        document.body.classList.remove('hide-tab-bar');
         loadDiscoveryFeed();
     } else if (path === '/bands') {
         if (window.currentUser) showMyBands();
@@ -344,6 +362,16 @@ window.addEventListener('popstate', function(event) {
         showBandInviteLanding(bandId);
     } else if (path === '/new-rehearsal') {
         if (window.currentUser) showCreateRehearsal();
+    } else if (path === '/connections') {
+        if (window.currentUser) showConnections();
+    } else if (path === '/messages') {
+        if (window.currentUser) showConversations();
+    } else if (path.match(/^\/chat\/([a-zA-Z0-9_]+)$/)) {
+        const conversationId = path.split('/')[2];
+        // Extract other user ID from conversation ID
+        const parts = conversationId.split('_');
+        const otherUserId = parts.find(p => p !== window.currentUser?.uid);
+        if (window.currentUser && otherUserId) showChat(conversationId, otherUserId);
     } else if (path.match(/^\/r\/([a-zA-Z0-9]+)$/)) {
         const rehearsalId = path.split('/')[2];
         showRehearsalDetail(rehearsalId);
@@ -472,13 +500,15 @@ function updateMenuAuth() {
     const menuSignOut = document.getElementById('menuSignOut');
     const menuEditProfile = document.getElementById('menuEditProfile');
     const menuViewProfile = document.getElementById('menuViewProfile');
+    const menuConnections = document.getElementById('menuConnections');
+    const menuMessages = document.getElementById('menuMessages');
     const menuProfileDivider = document.getElementById('menuProfileDivider');
-    
+
     if (user) {
         // Use primary profile photo if available, otherwise Google photo
         const photoURL = getPrimaryPhotoURL(window.currentUserProfile) || user.photoURL || '';
         const displayName = window.currentUserProfile?.name || user.displayName || '';
-        
+
         menuUserInfo.innerHTML = `
             <img src="${photoURL}" class="menu-user-avatar" onerror="this.style.display='none'">
             <div>
@@ -493,7 +523,13 @@ function updateMenuAuth() {
         // Show profile options for logged in users
         if (menuEditProfile) menuEditProfile.style.display = 'flex';
         if (menuViewProfile) menuViewProfile.style.display = 'flex';
+        if (menuConnections) menuConnections.style.display = 'flex';
+        if (menuMessages) menuMessages.style.display = 'flex';
         if (menuProfileDivider) menuProfileDivider.style.display = 'block';
+        // Update pending connection badge
+        updatePendingBadge();
+        // Update messages badge
+        if (window.updateMessagesBadge) updateMessagesBadge();
     } else {
         menuUserInfo.style.display = 'none';
         menuSignIn.style.display = 'flex';
@@ -501,6 +537,8 @@ function updateMenuAuth() {
         // Hide profile options for logged out users
         if (menuEditProfile) menuEditProfile.style.display = 'none';
         if (menuViewProfile) menuViewProfile.style.display = 'none';
+        if (menuConnections) menuConnections.style.display = 'none';
+        if (menuMessages) menuMessages.style.display = 'none';
         if (menuProfileDivider) menuProfileDivider.style.display = 'none';
     }
 }
@@ -1869,18 +1907,49 @@ async function viewMusicianProfile(userId) {
         
         // Update buttons based on whether viewing own profile
         const contactBtn = document.getElementById('contactMusicianBtn');
+        const connectBtn = document.getElementById('connectMusicianBtn');
         const backBtn = document.getElementById('profileBackBtn');
-        
+
         if (isOwnProfile) {
             contactBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M17 3l4 4L7 21H3v-4L17 3z"/></svg>Edit Profile';
             contactBtn.onclick = function() { showEditProfile(); };
             backBtn.innerHTML = 'Back to Home';
             backBtn.onclick = function() { showHomeScreen(); };
+            // Hide connect and message buttons on own profile
+            if (connectBtn) connectBtn.style.display = 'none';
+            const messageBtn = document.getElementById('messageMusicianBtn');
+            if (messageBtn) messageBtn.style.display = 'none';
         } else {
             contactBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>Contact';
             contactBtn.onclick = function() { contactMusician(); };
             backBtn.innerHTML = 'Back';
             backBtn.onclick = function() { showHomeScreen(); };
+
+            // Show connect button and get connection status
+            if (connectBtn) {
+                connectBtn.style.display = 'flex';
+                // Set default state immediately (in case user isn't logged in or query fails)
+                updateConnectButton(userId, 'none', false, null);
+                // Get connection status and update button
+                getConnectionStatus(userId).then(connStatus => {
+                    updateConnectButton(userId, connStatus.status, connStatus.isSentByMe, connStatus.connectionId);
+                    // Show/hide message button based on connection status
+                    const messageBtn = document.getElementById('messageMusicianBtn');
+                    if (messageBtn) {
+                        if (connStatus.status === 'accepted') {
+                            messageBtn.style.display = 'flex';
+                            messageBtn.onclick = () => startConversation(userId);
+                        } else {
+                            messageBtn.style.display = 'none';
+                        }
+                    }
+                }).catch(err => {
+                    console.error('Error getting connection status:', err);
+                    // Keep default "Connect" state on error
+                    const messageBtn = document.getElementById('messageMusicianBtn');
+                    if (messageBtn) messageBtn.style.display = 'none';
+                });
+            }
         }
         
         // Store email for contact
@@ -3033,6 +3102,16 @@ const isSchedulePage = window.location.pathname === '/schedule';
 // Check for /new-rehearsal path
 const isNewRehearsalPage = window.location.pathname === '/new-rehearsal';
 
+// Check for /connections path
+const isConnectionsPage = window.location.pathname === '/connections';
+
+// Check for /messages path
+const isMessagesPage = window.location.pathname === '/messages';
+
+// Check for /chat/{conversationId} path
+const chatMatch = window.location.pathname.match(/^\/chat\/([a-zA-Z0-9_]+)$/);
+const chatConversationId = chatMatch ? chatMatch[1] : null;
+
 // Check for /r/{rehearsalId} path
 const rehearsalMatch = window.location.pathname.match(/^\/r\/([a-zA-Z0-9]+)$/);
 const rehearsalId = rehearsalMatch ? rehearsalMatch[1] : null;
@@ -3062,6 +3141,15 @@ if (isPrivacyPage) {
 } else if (isNewRehearsalPage) {
     // Will be handled after auth
     window.pendingNewRehearsal = true;
+} else if (isConnectionsPage) {
+    // Will be handled after auth
+    window.pendingShowConnections = true;
+} else if (isMessagesPage) {
+    // Will be handled after auth
+    window.pendingShowMessages = true;
+} else if (chatConversationId) {
+    // Will be handled after auth
+    window.pendingChatConversationId = chatConversationId;
 } else if (rehearsalId) {
     // Show rehearsal detail directly (like gigs)
     document.getElementById('screen0').classList.remove('active');
@@ -3371,6 +3459,9 @@ function switchTab(tab) {
         case 'bands':
             showMyBands();
             break;
+        case 'messages':
+            showConversations();
+            break;
         case 'create':
             openCreateSheet();
             break;
@@ -3571,6 +3662,1421 @@ function setDiscoveryFilter(filter) {
     loadDiscoveryFeed(filter);
 }
 window.setDiscoveryFilter = setDiscoveryFilter;
+
+// ===== CONNECTIONS SYSTEM =====
+
+// Get connection status between current user and another user
+async function getConnectionStatus(otherUserId) {
+    if (!window.currentUser) return { status: 'none' };
+
+    const myId = window.currentUser.uid;
+    if (myId === otherUserId) return { status: 'self' };
+
+    const targetUsers = [myId, otherUserId].sort();
+
+    // Query using array-contains (which Firestore can verify against security rules)
+    // Then filter client-side for the specific connection
+    const q = query(
+        collection(db, "connections"),
+        where("users", "array-contains", myId)
+    );
+    const snap = await getDocs(q);
+
+    // Find the connection with this specific user
+    for (const docSnap of snap.docs) {
+        const conn = docSnap.data();
+        // Check if this connection is with the target user
+        if (conn.users && conn.users.length === 2 &&
+            conn.users.includes(myId) && conn.users.includes(otherUserId)) {
+            return {
+                status: conn.status,
+                connectionId: docSnap.id,
+                isPending: conn.status === 'pending',
+                isSentByMe: conn.requestedBy === myId,
+                message: conn.message || null
+            };
+        }
+    }
+
+    return { status: 'none' };
+}
+window.getConnectionStatus = getConnectionStatus;
+
+// Send a connection request (also creates a DM conversation)
+async function sendConnectionRequest(toUserId, message = '') {
+    if (!window.currentUser) {
+        alert('Please sign in first');
+        signInWithGoogleAndCheckProfile();
+        return null;
+    }
+
+    const myId = window.currentUser.uid;
+    if (myId === toUserId) return null;
+
+    try {
+        // Check if connection already exists
+        const existing = await getConnectionStatus(toUserId);
+        if (existing.status !== 'none') {
+            console.log('Connection already exists:', existing.status);
+            return existing;
+        }
+
+        const users = [myId, toUserId].sort();
+
+        // Create connection request
+        console.log('Creating connection request...');
+        const connectionRef = await addDoc(collection(db, "connections"), {
+            users: users,
+            requestedBy: myId,
+            requestedAt: serverTimestamp(),
+            status: 'pending',
+            acceptedAt: null,
+            message: message || null
+        });
+        console.log('Connection created:', connectionRef.id);
+
+        // Create or get conversation for the connection request
+        const conversationId = getConversationId(myId, toUserId);
+        const convRef = doc(db, "conversations", conversationId);
+
+        // Try to check if conversation exists, but handle permission errors
+        let convExists = false;
+        try {
+            const convSnap = await getDoc(convRef);
+            convExists = convSnap.exists();
+        } catch (e) {
+            // Permission denied likely means doc doesn't exist
+            console.log('Conversation check failed (probably doesnt exist):', e.message);
+            convExists = false;
+        }
+
+        console.log('Creating/updating conversation...');
+        if (!convExists) {
+            await setDoc(convRef, {
+                participants: [myId, toUserId].sort(),
+                lastMessage: message || "Connection request sent",
+                lastMessageAt: serverTimestamp(),
+                lastMessageBy: myId,
+                createdAt: serverTimestamp(),
+                connectionId: connectionRef.id,
+                connectionStatus: 'pending'
+            });
+        } else {
+            // Update existing conversation with connection info
+            await updateDoc(convRef, {
+                connectionId: connectionRef.id,
+                connectionStatus: 'pending',
+                lastMessage: message || "Connection request sent",
+                lastMessageAt: serverTimestamp(),
+                lastMessageBy: myId
+            });
+        }
+        console.log('Conversation created/updated');
+
+        // Add the message to the conversation
+        if (message) {
+            console.log('Adding message to conversation...');
+            await addDoc(collection(db, "conversations", conversationId, "messages"), {
+                senderId: myId,
+                text: message,
+                sentAt: serverTimestamp(),
+                isConnectionRequest: true
+            });
+            console.log('Message added');
+        }
+
+        // Update button state
+        updateConnectButton(toUserId, 'pending', true);
+
+        // Update messages badge
+        if (window.updateMessagesBadge) updateMessagesBadge();
+
+        return { status: 'pending', isSentByMe: true };
+    } catch (error) {
+        console.error('sendConnectionRequest error:', error);
+        console.error('Error code:', error.code);
+        console.error('Error message:', error.message);
+        throw error; // Re-throw so caller can handle
+    }
+}
+window.sendConnectionRequest = sendConnectionRequest;
+
+// Accept a connection request
+async function acceptConnection(connectionId) {
+    if (!window.currentUser) return;
+
+    await updateDoc(doc(db, "connections", connectionId), {
+        status: 'accepted',
+        acceptedAt: serverTimestamp()
+    });
+
+    // Refresh connections list if on that screen
+    if (document.getElementById('screenConnections').classList.contains('active')) {
+        loadPendingRequests();
+        loadMyConnections();
+    }
+
+    // Update pending badge count
+    updatePendingBadge();
+    updateMessagesBadge();
+}
+
+// Accept connection from conversation view
+async function acceptConnectionFromConv(connectionId, conversationId) {
+    if (!window.currentUser) return;
+
+    // Accept the connection
+    await updateDoc(doc(db, "connections", connectionId), {
+        status: 'accepted',
+        acceptedAt: serverTimestamp()
+    });
+
+    // Update conversation status (create if doesn't exist)
+    const convRef = doc(db, "conversations", conversationId);
+    const convSnap = await getDoc(convRef);
+    if (convSnap.exists()) {
+        await updateDoc(convRef, {
+            connectionStatus: 'accepted'
+        });
+    }
+
+    // Refresh conversations list
+    await loadConversations();
+
+    // Update badges
+    updatePendingBadge();
+    updateMessagesBadge();
+}
+window.acceptConnectionFromConv = acceptConnectionFromConv;
+
+// Decline connection from conversation view
+async function declineConnectionFromConv(connectionId, conversationId) {
+    if (!window.currentUser) return;
+
+    // Delete the connection
+    await deleteDoc(doc(db, "connections", connectionId));
+
+    // Update conversation to remove connection status (if exists)
+    const convRef = doc(db, "conversations", conversationId);
+    const convSnap = await getDoc(convRef);
+    if (convSnap.exists()) {
+        await updateDoc(convRef, {
+            connectionStatus: 'declined',
+            connectionId: null
+        });
+    }
+
+    // Refresh conversations list
+    await loadConversations();
+
+    // Update badges
+    updatePendingBadge();
+    updateMessagesBadge();
+}
+window.declineConnectionFromConv = declineConnectionFromConv;
+window.acceptConnection = acceptConnection;
+
+// Decline a connection request
+async function declineConnection(connectionId) {
+    if (!window.currentUser) return;
+
+    await deleteDoc(doc(db, "connections", connectionId));
+
+    // Refresh connections list if on that screen
+    if (document.getElementById('screenConnections').classList.contains('active')) {
+        loadPendingRequests();
+    }
+
+    // Update pending badge count
+    updatePendingBadge();
+}
+window.declineConnection = declineConnection;
+
+// Remove an existing connection
+async function removeConnection(connectionId) {
+    if (!window.currentUser) return;
+
+    if (!confirm('Are you sure you want to remove this connection?')) return;
+
+    await deleteDoc(doc(db, "connections", connectionId));
+
+    // Refresh connections list if on that screen
+    if (document.getElementById('screenConnections').classList.contains('active')) {
+        loadMyConnections();
+    }
+}
+window.removeConnection = removeConnection;
+
+// Cancel a pending request I sent
+async function cancelConnectionRequest(connectionId) {
+    if (!window.currentUser) return;
+
+    await deleteDoc(doc(db, "connections", connectionId));
+
+    // Update button if on profile
+    if (window.viewingMusicianId) {
+        updateConnectButton(window.viewingMusicianId, 'none', false);
+    }
+}
+window.cancelConnectionRequest = cancelConnectionRequest;
+
+// Load my accepted connections
+async function loadMyConnections() {
+    if (!window.currentUser) return [];
+
+    const myId = window.currentUser.uid;
+    const connectionsList = document.getElementById('connectionsList');
+
+    if (connectionsList) {
+        connectionsList.innerHTML = '<div class="loading-spinner"></div>';
+    }
+
+    const q = query(
+        collection(db, "connections"),
+        where("users", "array-contains", myId),
+        where("status", "==", "accepted")
+    );
+
+    const snap = await getDocs(q);
+    const connections = [];
+
+    for (const docSnap of snap.docs) {
+        const conn = docSnap.data();
+        const otherUserId = conn.users.find(id => id !== myId);
+
+        // Get the other user's profile
+        const userSnap = await getDoc(doc(db, "users", otherUserId));
+        if (userSnap.exists()) {
+            connections.push({
+                connectionId: docSnap.id,
+                userId: otherUserId,
+                user: userSnap.data(),
+                acceptedAt: conn.acceptedAt
+            });
+        }
+    }
+
+    // Render connections
+    if (connectionsList) {
+        if (connections.length === 0) {
+            connectionsList.innerHTML = `
+                <div class="empty-state">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity: 0.5;">
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/>
+                        <circle cx="19" cy="7" r="3"/>
+                        <path d="M19 21v-1a3 3 0 00-3-3h-1"/>
+                    </svg>
+                    <p>No connections yet</p>
+                    <p style="font-size: 13px; color: #666;">Connect with musicians you know</p>
+                </div>
+            `;
+        } else {
+            connectionsList.innerHTML = connections.map(c => renderConnectionCard(c)).join('');
+        }
+    }
+
+    return connections;
+}
+window.loadMyConnections = loadMyConnections;
+
+// Load pending incoming requests
+async function loadPendingRequests() {
+    if (!window.currentUser) return [];
+
+    const myId = window.currentUser.uid;
+    const requestsList = document.getElementById('requestsList');
+
+    if (requestsList) {
+        requestsList.innerHTML = '<div class="loading-spinner"></div>';
+    }
+
+    const q = query(
+        collection(db, "connections"),
+        where("users", "array-contains", myId),
+        where("status", "==", "pending")
+    );
+
+    const snap = await getDocs(q);
+    const requests = [];
+
+    for (const docSnap of snap.docs) {
+        const conn = docSnap.data();
+        // Only show requests where I'm NOT the requester (incoming requests)
+        if (conn.requestedBy !== myId) {
+            const userSnap = await getDoc(doc(db, "users", conn.requestedBy));
+            if (userSnap.exists()) {
+                requests.push({
+                    connectionId: docSnap.id,
+                    userId: conn.requestedBy,
+                    user: userSnap.data(),
+                    requestedAt: conn.requestedAt,
+                    message: conn.message
+                });
+            }
+        }
+    }
+
+    // Render requests
+    if (requestsList) {
+        if (requests.length === 0) {
+            requestsList.innerHTML = `
+                <div class="empty-state">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity: 0.5;">
+                        <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                        <circle cx="8.5" cy="7" r="4"/>
+                        <line x1="20" y1="8" x2="20" y2="14"/>
+                        <line x1="23" y1="11" x2="17" y2="11"/>
+                    </svg>
+                    <p>No pending requests</p>
+                </div>
+            `;
+        } else {
+            requestsList.innerHTML = requests.map(r => renderRequestCard(r)).join('');
+        }
+    }
+
+    return requests;
+}
+window.loadPendingRequests = loadPendingRequests;
+
+// Get pending request count
+async function getPendingRequestCount() {
+    if (!window.currentUser) return 0;
+
+    const myId = window.currentUser.uid;
+
+    const q = query(
+        collection(db, "connections"),
+        where("users", "array-contains", myId),
+        where("status", "==", "pending")
+    );
+
+    const snap = await getDocs(q);
+    let count = 0;
+
+    snap.docs.forEach(docSnap => {
+        const conn = docSnap.data();
+        if (conn.requestedBy !== myId) {
+            count++;
+        }
+    });
+
+    return count;
+}
+window.getPendingRequestCount = getPendingRequestCount;
+
+// Update the pending badge in menu
+async function updatePendingBadge() {
+    const count = await getPendingRequestCount();
+    const badge = document.getElementById('connectionsBadge');
+
+    if (badge) {
+        if (count > 0) {
+            badge.textContent = count;
+            badge.style.display = 'flex';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+}
+window.updatePendingBadge = updatePendingBadge;
+
+// Update the requests tab badge
+async function updateRequestsTabBadge() {
+    const count = await getPendingRequestCount();
+    const badge = document.getElementById('requestsTabBadge');
+
+    if (badge) {
+        if (count > 0) {
+            badge.textContent = count;
+        } else {
+            badge.textContent = '';
+        }
+    }
+}
+window.updateRequestsTabBadge = updateRequestsTabBadge;
+
+// Render a connection card
+function renderConnectionCard(connection) {
+    const user = connection.user;
+    const instruments = user.instruments || [];
+    const instrumentsText = instruments.length > 0 ? instruments.join(' · ') : '';
+    const photoURL = getPrimaryPhotoURL(user);
+
+    const avatarHtml = photoURL
+        ? `<img src="${photoURL}" alt="${escapeHtml(user.name)}">`
+        : '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>';
+
+    const acceptedDate = connection.acceptedAt?.toDate ? connection.acceptedAt.toDate() : new Date();
+    const dateStr = acceptedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+    return `
+        <div class="connection-card" onclick="viewMusicianProfile('${connection.userId}')">
+            <div class="connection-avatar">${avatarHtml}</div>
+            <div class="connection-info">
+                <div class="connection-name">${escapeHtml(user.name || 'Unknown')}</div>
+                <div class="connection-meta">${escapeHtml(instrumentsText)}${user.location ? (instrumentsText ? ' · ' : '') + escapeHtml(user.location) : ''}</div>
+                <div class="connection-date">Connected ${dateStr}</div>
+            </div>
+            <div class="connection-actions">
+                <button class="connection-msg-btn" onclick="event.stopPropagation(); startConversation('${connection.userId}')" title="Message">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                </button>
+                <button class="connection-view-btn" onclick="event.stopPropagation(); viewMusicianProfile('${connection.userId}')">View</button>
+            </div>
+        </div>
+    `;
+}
+
+// Render a request card
+function renderRequestCard(request) {
+    const user = request.user;
+    const instruments = user.instruments || [];
+    const instrumentsText = instruments.length > 0 ? instruments.join(' · ') : '';
+    const photoURL = getPrimaryPhotoURL(user);
+
+    const avatarHtml = photoURL
+        ? `<img src="${photoURL}" alt="${escapeHtml(user.name)}">`
+        : '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>';
+
+    return `
+        <div class="connection-card request-card">
+            <div class="connection-avatar">${avatarHtml}</div>
+            <div class="connection-info" onclick="viewMusicianProfile('${request.userId}')">
+                <div class="connection-name">${escapeHtml(user.name || 'Unknown')}</div>
+                <div class="connection-meta">${escapeHtml(instrumentsText)}${user.location ? (instrumentsText ? ' · ' : '') + escapeHtml(user.location) : ''}</div>
+                ${request.message ? `<div class="request-message">"${escapeHtml(request.message)}"</div>` : ''}
+            </div>
+            <div class="request-actions">
+                <button class="request-accept-btn" onclick="acceptConnection('${request.connectionId}')">Accept</button>
+                <button class="request-decline-btn" onclick="declineConnection('${request.connectionId}')">Decline</button>
+            </div>
+        </div>
+    `;
+}
+
+// Show connections screen
+async function showConnections(tab = 'connections') {
+    if (!window.currentUser) {
+        alert('Please sign in first');
+        signInWithGoogleAndCheckProfile();
+        return;
+    }
+
+    // Clear all screens
+    document.querySelectorAll('.screen').forEach(s => {
+        s.classList.remove('active');
+        s.style.display = '';
+    });
+    document.getElementById('screenConnections').classList.add('active');
+
+    window.history.pushState({}, '', '/connections');
+
+    // Update requests tab badge
+    updateRequestsTabBadge();
+
+    // Set active tab
+    switchConnectionsTab(tab);
+
+    // Load data
+    if (tab === 'connections') {
+        loadMyConnections();
+    } else {
+        loadPendingRequests();
+    }
+
+    // Close menu if open
+    const slideMenu = document.getElementById('slideMenu');
+    if (slideMenu.classList.contains('open')) {
+        toggleMenu();
+    }
+}
+window.showConnections = showConnections;
+
+// Switch between connections tabs
+function switchConnectionsTab(tab) {
+    const connectionsTab = document.getElementById('connectionsTabBtn');
+    const requestsTab = document.getElementById('requestsTabBtn');
+    const connectionsList = document.getElementById('connectionsList');
+    const requestsList = document.getElementById('requestsList');
+
+    if (tab === 'connections') {
+        connectionsTab.classList.add('active');
+        requestsTab.classList.remove('active');
+        connectionsList.style.display = 'block';
+        requestsList.style.display = 'none';
+        loadMyConnections();
+    } else {
+        connectionsTab.classList.remove('active');
+        requestsTab.classList.add('active');
+        connectionsList.style.display = 'none';
+        requestsList.style.display = 'block';
+        loadPendingRequests();
+    }
+}
+window.switchConnectionsTab = switchConnectionsTab;
+
+// Update connect button state on profile
+function updateConnectButton(userId, status, isSentByMe, connectionId = null) {
+    const btn = document.getElementById('connectMusicianBtn');
+    if (!btn) return;
+
+    btn.className = 'connect-btn';
+    btn.disabled = false;
+
+    switch (status) {
+        case 'none':
+            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>Connect';
+            btn.onclick = () => promptConnectionMessage(userId);
+            break;
+        case 'pending':
+            if (isSentByMe) {
+                btn.classList.add('pending');
+                btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>Pending';
+                btn.onclick = () => {
+                    if (confirm('Cancel connection request?')) {
+                        cancelConnectionRequest(connectionId);
+                    }
+                };
+            } else {
+                btn.classList.add('respond');
+                btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Respond';
+                btn.onclick = () => showConnectionResponse(connectionId, userId);
+            }
+            break;
+        case 'accepted':
+            btn.classList.add('connected');
+            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Connected';
+            btn.onclick = () => {
+                if (confirm('Remove connection?')) {
+                    removeConnection(connectionId);
+                    updateConnectButton(userId, 'none', false);
+                }
+            };
+            break;
+        case 'self':
+            btn.style.display = 'none';
+            break;
+    }
+}
+
+// Show connection response options (for incoming requests viewed on profile)
+function showConnectionResponse(connectionId, userId) {
+    const action = confirm('Accept this connection request?\n\nPress OK to Accept, Cancel to Decline');
+    if (action) {
+        acceptConnection(connectionId);
+        updateConnectButton(userId, 'accepted', false, connectionId);
+    } else {
+        if (confirm('Decline this connection request?')) {
+            declineConnection(connectionId);
+            updateConnectButton(userId, 'none', false);
+        }
+    }
+}
+
+// Open chat to send connection request with message
+function promptConnectionMessage(userId) {
+    if (!window.currentUser) {
+        alert('Please sign in to connect with musicians');
+        signInWithGoogleAndCheckProfile();
+        return;
+    }
+    // Open chat in "connection request" mode
+    showChatForConnectionRequest(userId);
+}
+window.promptConnectionMessage = promptConnectionMessage;
+
+// ===== END CONNECTIONS SYSTEM =====
+
+// ===== DIRECT MESSAGES SYSTEM =====
+
+// Current conversation state
+window.currentConversationId = null;
+window.currentChatUserId = null;
+let messageUnsubscribe = null;
+
+// Generate deterministic conversation ID from two user IDs
+function getConversationId(userId1, userId2) {
+    return [userId1, userId2].sort().join('_');
+}
+window.getConversationId = getConversationId;
+
+// Get or create a conversation with another user
+async function getOrCreateConversation(otherUserId) {
+    if (!window.currentUser) return null;
+
+    const myId = window.currentUser.uid;
+    const conversationId = getConversationId(myId, otherUserId);
+
+    const convRef = doc(db, "conversations", conversationId);
+    const convSnap = await getDoc(convRef);
+
+    if (!convSnap.exists()) {
+        await setDoc(convRef, {
+            participants: [myId, otherUserId].sort(),
+            lastMessage: null,
+            lastMessageAt: null,
+            lastMessageBy: null,
+            createdAt: serverTimestamp()
+        });
+    }
+
+    return conversationId;
+}
+window.getOrCreateConversation = getOrCreateConversation;
+
+// Start a conversation with a user (from profile)
+async function startConversation(otherUserId) {
+    if (!window.currentUser) {
+        alert('Please sign in first');
+        signInWithGoogleAndCheckProfile();
+        return;
+    }
+
+    const conversationId = await getOrCreateConversation(otherUserId);
+    if (conversationId) {
+        showChat(conversationId, otherUserId);
+    }
+}
+window.startConversation = startConversation;
+
+// Load all conversations for current user (including pending connection requests)
+async function loadConversations() {
+    if (!window.currentUser) return [];
+
+    const myId = window.currentUser.uid;
+    const container = document.getElementById('conversationsList');
+    const emptyState = document.getElementById('conversationsEmpty');
+
+    container.innerHTML = '<div class="loading-spinner"></div>';
+    emptyState.style.display = 'none';
+
+    try {
+        // Load conversations
+        const convQuery = query(
+            collection(db, "conversations"),
+            where("participants", "array-contains", myId)
+        );
+        const convSnap = await getDocs(convQuery);
+
+        // Also load pending connection requests TO me (that might not have conversations)
+        const connQuery = query(
+            collection(db, "connections"),
+            where("users", "array-contains", myId),
+            where("status", "==", "pending")
+        );
+        const connSnap = await getDocs(connQuery);
+
+        // Track which connections already have conversations
+        const conversationConnIds = new Set();
+
+        // Get all conversations with user data
+        const conversations = [];
+        for (const docSnap of convSnap.docs) {
+            const conv = { id: docSnap.id, ...docSnap.data() };
+            if (conv.connectionId) {
+                conversationConnIds.add(conv.connectionId);
+            }
+            // Get the other user's ID
+            const otherUserId = conv.participants.find(p => p !== myId);
+            if (otherUserId) {
+                // Fetch their profile
+                const userRef = doc(db, "users", otherUserId);
+                const userSnap = await getDoc(userRef);
+                if (userSnap.exists()) {
+                    conv.otherUser = { id: otherUserId, ...userSnap.data() };
+                    conversations.push(conv);
+                }
+            }
+        }
+
+        // Add pending connection requests that don't have conversations
+        for (const docSnap of connSnap.docs) {
+            if (conversationConnIds.has(docSnap.id)) continue; // Already has conversation
+
+            const conn = docSnap.data();
+            // Only show requests TO me (not FROM me)
+            if (conn.requestedBy === myId) continue;
+
+            const otherUserId = conn.users.find(u => u !== myId);
+            if (otherUserId) {
+                const userRef = doc(db, "users", otherUserId);
+                const userSnap = await getDoc(userRef);
+                if (userSnap.exists()) {
+                    // Create a pseudo-conversation for display
+                    conversations.push({
+                        id: getConversationId(myId, otherUserId),
+                        participants: conn.users,
+                        connectionId: docSnap.id,
+                        connectionStatus: 'pending',
+                        lastMessage: conn.message || 'Wants to connect',
+                        lastMessageAt: conn.requestedAt,
+                        lastMessageBy: conn.requestedBy,
+                        otherUser: { id: otherUserId, ...userSnap.data() },
+                        isPseudoConversation: true
+                    });
+                }
+            }
+        }
+
+        // Sort by lastMessageAt (most recent first)
+        conversations.sort((a, b) => {
+            const aTime = a.lastMessageAt?.toDate?.() || new Date(0);
+            const bTime = b.lastMessageAt?.toDate?.() || new Date(0);
+            return bTime - aTime;
+        });
+
+        // Render conversations
+        if (conversations.length === 0) {
+            container.innerHTML = '';
+            emptyState.style.display = 'flex';
+        } else {
+            emptyState.style.display = 'none';
+            container.innerHTML = conversations.map(conv => renderConversationCard(conv)).join('');
+        }
+
+        return conversations;
+    } catch (error) {
+        console.error("Error loading conversations:", error);
+        container.innerHTML = '<div class="empty-state"><p>Error loading messages</p></div>';
+        return [];
+    }
+}
+window.loadConversations = loadConversations;
+
+// Render a conversation card for the inbox
+function renderConversationCard(conv) {
+    const user = conv.otherUser;
+    const photoURL = getPrimaryPhotoURL(user);
+    const avatarHtml = photoURL
+        ? `<img src="${photoURL}" alt="${escapeHtml(user.name || 'User')}">`
+        : '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>';
+
+    const lastMessageTime = conv.lastMessageAt?.toDate?.();
+    const timeStr = lastMessageTime ? formatMessageTime(lastMessageTime) : '';
+
+    // Check if this conversation has unread messages
+    const isUnread = conv.lastMessageBy && conv.lastMessageBy !== window.currentUser.uid;
+
+    const preview = conv.lastMessage
+        ? escapeHtml(conv.lastMessage.substring(0, 40)) + (conv.lastMessage.length > 40 ? '...' : '')
+        : 'No messages yet';
+
+    // Check if this is a pending connection request TO me
+    const isPendingRequest = conv.connectionStatus === 'pending' && conv.lastMessageBy !== window.currentUser.uid;
+    const isPendingSent = conv.connectionStatus === 'pending' && conv.lastMessageBy === window.currentUser.uid;
+
+    let statusHtml = '';
+    if (isPendingRequest && conv.connectionId) {
+        statusHtml = `
+            <div class="conversation-request-actions">
+                <button class="conv-accept-btn" onclick="event.stopPropagation(); acceptConnectionFromConv('${conv.connectionId}', '${conv.id}')">Accept</button>
+                <button class="conv-decline-btn" onclick="event.stopPropagation(); declineConnectionFromConv('${conv.connectionId}', '${conv.id}')">Decline</button>
+            </div>
+        `;
+    } else if (isPendingSent) {
+        statusHtml = `<div class="conversation-pending-label">Request pending</div>`;
+    }
+
+    return `
+        <div class="conversation-card ${isUnread ? 'unread' : ''} ${isPendingRequest ? 'has-request' : ''}" onclick="showChat('${conv.id}', '${user.id}')">
+            <div class="conversation-avatar">${avatarHtml}</div>
+            <div class="conversation-content">
+                <div class="conversation-header">
+                    <span class="conversation-name">${escapeHtml(user.name || 'Unknown')}</span>
+                    <span class="conversation-time">${timeStr}</span>
+                </div>
+                <div class="conversation-preview">
+                    <span class="conversation-preview-text">${isPendingRequest ? 'Wants to connect' : preview}</span>
+                    ${isUnread && !isPendingRequest ? '<span class="unread-indicator"></span>' : ''}
+                </div>
+                ${statusHtml}
+            </div>
+        </div>
+    `;
+}
+
+// Format message time for display
+function formatMessageTime(date) {
+    const now = new Date();
+    const diff = now - date;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return 'now';
+    if (minutes < 60) return `${minutes}m`;
+    if (hours < 24) return `${hours}h`;
+    if (days < 7) return `${days}d`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// Show conversations/inbox screen
+async function showConversations() {
+    if (!window.currentUser) {
+        alert('Please sign in first');
+        signInWithGoogleAndCheckProfile();
+        return;
+    }
+
+    // Unsubscribe from any active chat listener
+    unsubscribeFromMessages();
+
+    // Clear conversation state
+    window.currentConversationId = null;
+    window.currentChatUserId = null;
+
+    // Restore global header and tab bar (in case coming from chat)
+    document.getElementById('globalHeader').style.display = '';
+    document.body.classList.remove('hide-tab-bar');
+    showTabBar();
+
+    // Update tab bar
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    const tabMessages = document.getElementById('tabMessages');
+    if (tabMessages) tabMessages.classList.add('active');
+
+    // Clear all screens
+    document.querySelectorAll('.screen').forEach(s => {
+        s.classList.remove('active');
+        s.style.display = '';
+    });
+    document.getElementById('screenConversations').classList.add('active');
+
+    window.history.pushState({}, '', '/messages');
+
+    // Close menu if open
+    const overlay = document.getElementById('menuOverlay');
+    const menu = document.getElementById('slideMenu');
+    overlay.classList.remove('visible');
+    menu.classList.remove('visible');
+
+    // Load conversations
+    await loadConversations();
+}
+window.showConversations = showConversations;
+
+// Show individual chat screen
+async function showChat(conversationId, otherUserId) {
+    if (!window.currentUser) {
+        alert('Please sign in first');
+        signInWithGoogleAndCheckProfile();
+        return;
+    }
+
+    window.currentConversationId = conversationId;
+    window.currentChatUserId = otherUserId;
+    window.isConnectionRequestMode = false; // Reset connection request mode
+
+    // Reset input placeholder
+    const input = document.getElementById('messageInput');
+    if (input) input.placeholder = 'Type a message...';
+
+    // Clear all screens
+    document.querySelectorAll('.screen').forEach(s => {
+        s.classList.remove('active');
+        s.style.display = '';
+    });
+    document.getElementById('screenChat').classList.add('active');
+
+    window.history.pushState({}, '', '/chat/' + conversationId);
+
+    // Hide global header and tab bar for chat
+    document.getElementById('globalHeader').style.display = 'none';
+    document.body.classList.add('hide-tab-bar');
+
+    // Load other user's info for header
+    try {
+        const userRef = doc(db, "users", otherUserId);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+            const user = userSnap.data();
+            document.getElementById('chatUserName').textContent = user.name || 'Unknown';
+            const photoURL = getPrimaryPhotoURL(user);
+            document.getElementById('chatUserAvatar').innerHTML = photoURL
+                ? `<img src="${photoURL}" alt="${escapeHtml(user.name || 'User')}">`
+                : '';
+        }
+    } catch (error) {
+        console.error("Error loading chat user:", error);
+    }
+
+    // Clear messages and start listening
+    document.getElementById('messagesList').innerHTML = '<div class="messages-loading"><div class="loading-spinner"></div></div>';
+
+    // Subscribe to messages
+    subscribeToMessages(conversationId);
+
+    // Focus input
+    setTimeout(() => {
+        document.getElementById('messageInput').focus();
+    }, 100);
+}
+window.showChat = showChat;
+
+// Show chat in connection request mode (when clicking Connect on a profile)
+async function showChatForConnectionRequest(otherUserId) {
+    if (!window.currentUser) {
+        alert('Please sign in first');
+        signInWithGoogleAndCheckProfile();
+        return;
+    }
+
+    const myId = window.currentUser.uid;
+    const conversationId = getConversationId(myId, otherUserId);
+
+    window.currentConversationId = conversationId;
+    window.currentChatUserId = otherUserId;
+    window.isConnectionRequestMode = true; // Flag for connection request mode
+
+    // Clear all screens
+    document.querySelectorAll('.screen').forEach(s => {
+        s.classList.remove('active');
+        s.style.display = '';
+    });
+    document.getElementById('screenChat').classList.add('active');
+
+    window.history.pushState({}, '', '/chat/' + conversationId);
+
+    // Hide global header and tab bar for chat
+    document.getElementById('globalHeader').style.display = 'none';
+    document.body.classList.add('hide-tab-bar');
+
+    // Load other user's info for header
+    let userName = 'this musician';
+    try {
+        const userRef = doc(db, "users", otherUserId);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+            const user = userSnap.data();
+            userName = user.name || 'Unknown';
+            document.getElementById('chatUserName').textContent = userName;
+            const photoURL = getPrimaryPhotoURL(user);
+            document.getElementById('chatUserAvatar').innerHTML = photoURL
+                ? `<img src="${photoURL}" alt="${escapeHtml(user.name || 'User')}">`
+                : '';
+        }
+    } catch (error) {
+        console.error("Error loading chat user:", error);
+    }
+
+    // Show connection request banner instead of messages
+    document.getElementById('messagesList').innerHTML = `
+        <div class="connection-request-banner">
+            <div class="connection-banner-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+                    <circle cx="8.5" cy="7" r="4"/>
+                    <line x1="20" y1="8" x2="20" y2="14"/>
+                    <line x1="23" y1="11" x2="17" y2="11"/>
+                </svg>
+            </div>
+            <h3>Connect with ${escapeHtml(userName)}</h3>
+            <p>Send a message to introduce yourself and request to connect.</p>
+            <button class="connect-without-msg-btn" onclick="sendConnectionWithoutMessage()">
+                Connect without message
+            </button>
+        </div>
+    `;
+
+    // Update input placeholder
+    document.getElementById('messageInput').placeholder = 'Write a message to connect...';
+
+    // Focus input
+    setTimeout(() => {
+        document.getElementById('messageInput').focus();
+    }, 100);
+}
+window.showChatForConnectionRequest = showChatForConnectionRequest;
+
+// Send connection request without a message
+async function sendConnectionWithoutMessage() {
+    if (!window.currentChatUserId) return;
+
+    await sendConnectionRequest(window.currentChatUserId, '');
+    window.isConnectionRequestMode = false;
+
+    // Go back to the profile or show success
+    showConversations();
+}
+window.sendConnectionWithoutMessage = sendConnectionWithoutMessage;
+
+// View chat user's profile
+function viewChatUserProfile() {
+    if (window.currentChatUserId) {
+        viewMusicianProfile(window.currentChatUserId);
+    }
+}
+window.viewChatUserProfile = viewChatUserProfile;
+
+// Subscribe to real-time messages
+function subscribeToMessages(conversationId) {
+    // Unsubscribe from any existing listener
+    unsubscribeFromMessages();
+
+    const messagesRef = collection(db, "conversations", conversationId, "messages");
+    const q = query(messagesRef, orderBy("sentAt", "asc"));
+
+    messageUnsubscribe = onSnapshot(q, (snapshot) => {
+        const messages = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        renderMessages(messages);
+        scrollToBottom();
+    }, (error) => {
+        console.error("Error listening to messages:", error);
+        document.getElementById('messagesList').innerHTML = '<div class="messages-empty"><p>Error loading messages</p></div>';
+    });
+}
+
+// Unsubscribe from messages listener
+function unsubscribeFromMessages() {
+    if (messageUnsubscribe) {
+        messageUnsubscribe();
+        messageUnsubscribe = null;
+    }
+}
+window.unsubscribeFromMessages = unsubscribeFromMessages;
+
+// Render messages in the chat
+function renderMessages(messages) {
+    const container = document.getElementById('messagesList');
+    const myId = window.currentUser?.uid;
+
+    if (messages.length === 0) {
+        container.innerHTML = `
+            <div class="messages-empty">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                </svg>
+                <p>No messages yet</p>
+                <p style="font-size: 13px; margin-top: 4px;">Send a message to start the conversation</p>
+            </div>
+        `;
+        return;
+    }
+
+    let lastDate = null;
+    let html = '';
+
+    messages.forEach(msg => {
+        const isMe = msg.senderId === myId;
+        const sentAt = msg.sentAt?.toDate?.();
+        const wasEdited = msg.editedAt != null;
+
+        // Add date separator if needed
+        if (sentAt) {
+            const dateStr = sentAt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            if (dateStr !== lastDate) {
+                html += `<div class="message-date-separator"><span>${dateStr}</span></div>`;
+                lastDate = dateStr;
+            }
+        }
+
+        const timeStr = sentAt ? sentAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
+        const editedIndicator = wasEdited ? '<span class="message-edited">(edited)</span>' : '';
+        const escapedText = escapeHtml(msg.text).replace(/'/g, '&#39;');
+
+        html += `
+            <div class="message-wrapper ${isMe ? 'sent' : 'received'}">
+                <div class="message-bubble clickable ${isMe ? 'sent' : 'received'}" onclick="showMessageMenu('${msg.id}', '${escapedText}', ${isMe})">
+                    ${escapeHtml(msg.text)}
+                    <div class="message-time">${timeStr}${editedIndicator}</div>
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+// Scroll to bottom of messages
+function scrollToBottom() {
+    const container = document.getElementById('messagesList');
+    if (container) {
+        setTimeout(() => {
+            container.scrollTop = container.scrollHeight;
+        }, 50);
+    }
+}
+
+// Send a message (or connection request if in that mode)
+async function sendMessage() {
+    const input = document.getElementById('messageInput');
+    const text = input.value.trim();
+
+    if (!text || !window.currentConversationId || !window.currentUser) return;
+
+    const myId = window.currentUser.uid;
+    const conversationId = window.currentConversationId;
+
+    // Clear input immediately for responsiveness
+    input.value = '';
+
+    // If in connection request mode, send connection request with message
+    if (window.isConnectionRequestMode && window.currentChatUserId) {
+        window.isConnectionRequestMode = false;
+        input.placeholder = 'Type a message...'; // Reset placeholder
+
+        try {
+            const result = await sendConnectionRequest(window.currentChatUserId, text);
+            if (result) {
+                // Now show the actual chat with messages
+                showChat(conversationId, window.currentChatUserId);
+            }
+        } catch (error) {
+            console.error("Error sending connection request:", error);
+            console.error("Error details:", error.code, error.message);
+            alert("Failed to send connection request. Please try again.");
+            input.value = text;
+            window.isConnectionRequestMode = true; // Restore mode
+        }
+        return;
+    }
+
+    input.focus();
+
+    try {
+        // Add message to subcollection
+        await addDoc(collection(db, "conversations", conversationId, "messages"), {
+            senderId: myId,
+            text: text,
+            sentAt: serverTimestamp()
+        });
+
+        // Update conversation metadata
+        await updateDoc(doc(db, "conversations", conversationId), {
+            lastMessage: text,
+            lastMessageAt: serverTimestamp(),
+            lastMessageBy: myId
+        });
+    } catch (error) {
+        console.error("Error sending message:", error);
+        alert("Failed to send message. Please try again.");
+        input.value = text; // Restore the message
+    }
+}
+window.sendMessage = sendMessage;
+
+// Handle Enter key in message input
+function handleMessageKeypress(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+    }
+}
+window.handleMessageKeypress = handleMessageKeypress;
+
+// Update messages badge in menu and tab bar
+async function updateMessagesBadge() {
+    const menuBadge = document.getElementById('messagesBadge');
+    const tabBadge = document.getElementById('messagesTabBadge');
+
+    if (!window.currentUser) {
+        if (menuBadge) menuBadge.style.display = 'none';
+        if (tabBadge) tabBadge.style.display = 'none';
+        return 0;
+    }
+
+    try {
+        const myId = window.currentUser.uid;
+
+        // Count unread messages
+        const convQuery = query(
+            collection(db, "conversations"),
+            where("participants", "array-contains", myId)
+        );
+        const convSnap = await getDocs(convQuery);
+
+        let unreadCount = 0;
+        convSnap.forEach(docSnap => {
+            const conv = docSnap.data();
+            // Count as unread if last message was from someone else
+            if (conv.lastMessageBy && conv.lastMessageBy !== myId && conv.lastMessage) {
+                unreadCount++;
+            }
+        });
+
+        // Also count pending connection requests (they appear in messages)
+        const pendingCount = await getPendingRequestCount();
+        const totalCount = unreadCount + pendingCount;
+
+        // Update menu badge
+        if (menuBadge) {
+            if (totalCount > 0) {
+                menuBadge.textContent = totalCount;
+                menuBadge.style.display = 'flex';
+            } else {
+                menuBadge.style.display = 'none';
+            }
+        }
+
+        // Update tab badge
+        if (tabBadge) {
+            if (totalCount > 0) {
+                tabBadge.textContent = totalCount;
+                tabBadge.style.display = 'flex';
+            } else {
+                tabBadge.style.display = 'none';
+            }
+        }
+
+        return totalCount;
+    } catch (error) {
+        console.error("Error counting unread messages:", error);
+        return 0;
+    }
+}
+window.updateMessagesBadge = updateMessagesBadge;
+
+// ===== EMOJI PICKER =====
+
+const EMOJI_LIST = [
+    '😀', '😃', '😄', '😁', '😅', '😂', '🤣', '😊',
+    '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘',
+    '😗', '😙', '😚', '😋', '😛', '😜', '🤪', '😝',
+    '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐',
+    '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌',
+    '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢',
+    '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠',
+    '🥳', '😎', '🤓', '🧐', '😕', '😟', '🙁', '☹️',
+    '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨',
+    '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞',
+    '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬',
+    '👍', '👎', '👊', '✊', '🤛', '🤜', '🤞', '✌️',
+    '🤟', '🤘', '👌', '🤌', '🤏', '👈', '👉', '👆',
+    '👇', '☝️', '👋', '🤚', '🖐️', '✋', '🖖', '👏',
+    '🙌', '👐', '🤲', '🤝', '🙏', '❤️', '🧡', '💛',
+    '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️',
+    '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟',
+    '🎵', '🎶', '🎸', '🎹', '🥁', '🎷', '🎺', '🎻',
+    '🎤', '🎧', '🔥', '✨', '🌟', '💫', '⚡', '🎉',
+    '🎊', '🙈', '🙉', '🙊', '💀', '👻', '🎃', '🤖'
+];
+
+function initEmojiPicker() {
+    const grid = document.getElementById('emojiGrid');
+    if (!grid) return;
+
+    grid.innerHTML = EMOJI_LIST.map(emoji =>
+        `<button onclick="insertEmoji('${emoji}')">${emoji}</button>`
+    ).join('');
+}
+
+function toggleEmojiPicker() {
+    const picker = document.getElementById('emojiPicker');
+    if (picker.style.display === 'none') {
+        picker.style.display = 'block';
+        initEmojiPicker();
+    } else {
+        picker.style.display = 'none';
+    }
+}
+window.toggleEmojiPicker = toggleEmojiPicker;
+
+function insertEmoji(emoji) {
+    const input = document.getElementById('messageInput');
+    const start = input.selectionStart;
+    const end = input.selectionEnd;
+    const text = input.value;
+    input.value = text.substring(0, start) + emoji + text.substring(end);
+    input.selectionStart = input.selectionEnd = start + emoji.length;
+    input.focus();
+}
+window.insertEmoji = insertEmoji;
+
+// ===== MESSAGE ACTIONS =====
+
+window.selectedMessageId = null;
+window.selectedMessageText = null;
+window.selectedMessageIsMe = false;
+
+function showMessageMenu(messageId, text, isMe) {
+    window.selectedMessageId = messageId;
+    window.selectedMessageText = text;
+    window.selectedMessageIsMe = isMe;
+
+    const menu = document.getElementById('messageActionMenu');
+    const overlay = document.getElementById('messageActionOverlay');
+    const editBtn = document.getElementById('editMsgBtn');
+    const deleteBtn = document.getElementById('deleteMsgBtn');
+
+    // Only show edit/delete for own messages
+    if (editBtn) editBtn.style.display = isMe ? 'flex' : 'none';
+    if (deleteBtn) deleteBtn.style.display = isMe ? 'flex' : 'none';
+
+    menu.style.display = 'block';
+    overlay.classList.add('visible');
+}
+window.showMessageMenu = showMessageMenu;
+
+function closeMessageMenu() {
+    const menu = document.getElementById('messageActionMenu');
+    const overlay = document.getElementById('messageActionOverlay');
+    menu.style.display = 'none';
+    overlay.classList.remove('visible');
+    window.selectedMessageId = null;
+}
+window.closeMessageMenu = closeMessageMenu;
+
+function copyMessage() {
+    if (window.selectedMessageText) {
+        navigator.clipboard.writeText(window.selectedMessageText).then(() => {
+            closeMessageMenu();
+        }).catch(err => {
+            console.error('Failed to copy:', err);
+        });
+    }
+}
+window.copyMessage = copyMessage;
+
+async function editMessage() {
+    if (!window.selectedMessageId || !window.currentConversationId) {
+        closeMessageMenu();
+        return;
+    }
+
+    const newText = prompt('Edit message:', window.selectedMessageText);
+    if (newText !== null && newText.trim() !== '' && newText !== window.selectedMessageText) {
+        try {
+            await updateDoc(
+                doc(db, "conversations", window.currentConversationId, "messages", window.selectedMessageId),
+                {
+                    text: newText.trim(),
+                    editedAt: serverTimestamp()
+                }
+            );
+        } catch (error) {
+            console.error('Error editing message:', error);
+            alert('Failed to edit message');
+        }
+    }
+    closeMessageMenu();
+}
+window.editMessage = editMessage;
+
+async function deleteMessage() {
+    if (!window.selectedMessageId || !window.currentConversationId) {
+        closeMessageMenu();
+        return;
+    }
+
+    if (confirm('Delete this message?')) {
+        try {
+            await deleteDoc(
+                doc(db, "conversations", window.currentConversationId, "messages", window.selectedMessageId)
+            );
+        } catch (error) {
+            console.error('Error deleting message:', error);
+            alert('Failed to delete message');
+        }
+    }
+    closeMessageMenu();
+}
+window.deleteMessage = deleteMessage;
+
+// ===== END DIRECT MESSAGES SYSTEM =====
 
 // Create sheet functions
 function openCreateSheet() {
