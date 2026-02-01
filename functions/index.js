@@ -1,6 +1,7 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { defineSecret } = require('firebase-functions/params');
+const cheerio = require('cheerio');
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -655,9 +656,116 @@ exports.getBandBusyTimes = functions
     }
     
     res.json({ busyTimes, memberNames });
-    
+
   } catch (error) {
     console.error('Error getting band busy times:', error);
     res.status(500).json({ error: 'Error checking calendars' });
+  }
+});
+
+// ============================================
+// LINK PREVIEW FUNCTION
+// ============================================
+
+// Fetch link preview (Open Graph meta tags)
+exports.fetchLinkPreview = functions.https.onRequest(async (req, res) => {
+  // CORS headers
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+
+  const url = req.query.url;
+
+  if (!url) {
+    res.status(400).json({ error: 'Missing url parameter' });
+    return;
+  }
+
+  // Validate URL
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(url);
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      throw new Error('Invalid protocol');
+    }
+  } catch (e) {
+    res.status(400).json({ error: 'Invalid URL' });
+    return;
+  }
+
+  try {
+    // Fetch the page with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; TempoBot/1.0; +https://tempocal.app)',
+        'Accept': 'text/html,application/xhtml+xml'
+      }
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      res.status(400).json({ error: 'Failed to fetch URL' });
+      return;
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('text/html')) {
+      // Not HTML, return basic info
+      res.json({
+        title: parsedUrl.hostname,
+        description: '',
+        image: ''
+      });
+      return;
+    }
+
+    const html = await response.text();
+    const $ = cheerio.load(html);
+
+    // Extract Open Graph meta tags
+    const getMetaContent = (property) => {
+      return $(`meta[property="${property}"]`).attr('content') ||
+             $(`meta[name="${property}"]`).attr('content') || '';
+    };
+
+    let title = getMetaContent('og:title') || $('title').text() || '';
+    let description = getMetaContent('og:description') || getMetaContent('description') || '';
+    let image = getMetaContent('og:image') || '';
+
+    // Clean up
+    title = title.trim().substring(0, 200);
+    description = description.trim().substring(0, 300);
+
+    // Make image URL absolute if relative
+    if (image && !image.startsWith('http')) {
+      try {
+        image = new URL(image, url).href;
+      } catch (e) {
+        image = '';
+      }
+    }
+
+    // Cache response for 1 hour
+    res.set('Cache-Control', 'public, max-age=3600');
+
+    res.json({
+      title: title || parsedUrl.hostname,
+      description,
+      image
+    });
+
+  } catch (error) {
+    console.error('Error fetching link preview:', error);
+    res.status(500).json({ error: 'Failed to fetch preview' });
   }
 });

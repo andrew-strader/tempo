@@ -1,6 +1,6 @@
 // Import Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
-import { getFirestore, collection, addDoc, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, query, where, serverTimestamp, onSnapshot, orderBy } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+import { getFirestore, connectFirestoreEmulator, collection, addDoc, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, query, where, serverTimestamp, onSnapshot, orderBy, increment, limit as firestoreLimit } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js";
 import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 
@@ -21,6 +21,16 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 const auth = getAuth(app);
 const googleProvider = new GoogleAuthProvider();
+
+// Connect to emulators when running locally
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+if (isLocalhost) {
+    console.log('🔧 Running locally - connecting to Firebase emulators');
+    connectFirestoreEmulator(db, '127.0.0.1', 8080);
+    window.FUNCTIONS_EMULATOR_URL = 'http://127.0.0.1:5001/bandcal-89c81/us-central1';
+} else {
+    window.FUNCTIONS_EMULATOR_URL = null;
+}
 
 // Make functions available globally
 window.db = db;
@@ -294,12 +304,14 @@ window.signInWithGoogleAndCheckProfile = async function() {
 function updateAuthUI(user) {
     const userInfo = document.getElementById('userInfo');
     const signInPromptHome = document.getElementById('signInPromptHome');
+    const signInPromptFeed = document.getElementById('signInPromptFeed');
+    const createPostPrompt = document.querySelector('.create-post-prompt');
 
     if (user) {
         // Use primary profile photo if available, otherwise Google photo
         const photoURL = getPrimaryPhotoURL(window.currentUserProfile) || user.photoURL || '';
         const displayName = window.currentUserProfile?.name || user.displayName || user.email;
-        
+
         if (userInfo) {
             userInfo.innerHTML = `
                 <img src="${photoURL}" class="user-avatar" onerror="this.style.display='none'">
@@ -309,14 +321,18 @@ function updateAuthUI(user) {
             userInfo.style.display = 'flex';
         }
         if (signInPromptHome) signInPromptHome.style.display = 'none';
+        if (signInPromptFeed) signInPromptFeed.style.display = 'none';
+        if (createPostPrompt) createPostPrompt.style.display = 'flex';
     } else {
         if (userInfo) userInfo.style.display = 'none';
         if (signInPromptHome) signInPromptHome.style.display = 'block';
+        if (signInPromptFeed) signInPromptFeed.style.display = 'block';
+        if (createPostPrompt) createPostPrompt.style.display = 'none';
     }
 }
 
 function showHomeScreen() {
-    showDiscoveryHome();
+    showFeedHome();
     
     // Check if we should show "What's New" modal
     setTimeout(() => {
@@ -334,11 +350,12 @@ window.addEventListener('popstate', function(event) {
         // Clean up any active chat listener
         if (window.unsubscribeFromMessages) unsubscribeFromMessages();
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        document.getElementById('screen0').classList.add('active');
+        const screenFeed = document.getElementById('screenFeed');
+        if (screenFeed) screenFeed.classList.add('active');
         // Restore header and tab bar
         document.getElementById('globalHeader').style.display = '';
         document.body.classList.remove('hide-tab-bar');
-        loadDiscoveryFeed();
+        loadSocialFeed();
     } else if (path === '/bands') {
         if (window.currentUser) showMyBands();
     } else if (path === '/gigs' || path === '/schedule') {
@@ -393,12 +410,12 @@ function goHome() {
     overlay.classList.remove('visible');
     menu.classList.remove('visible');
 
-    showDiscoveryHome();
+    showFeedHome();
 
     // Update tab bar
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    const tabHome = document.getElementById('tabHome');
-    if (tabHome) tabHome.classList.add('active');
+    const tabFeed = document.getElementById('tabFeed');
+    if (tabFeed) tabFeed.classList.add('active');
 }
 
 function goToMyGigs() {
@@ -1491,6 +1508,14 @@ function openPhotoViewer(index) {
     document.body.style.overflow = 'hidden';
 }
 window.openPhotoViewer = openPhotoViewer;
+
+// Open photo viewer with a single image URL
+function viewSingleImage(imageUrl) {
+    window.viewerPhotos = [{ url: imageUrl }];
+    window.viewerIndex = 0;
+    openPhotoViewer(0);
+}
+window.viewSingleImage = viewSingleImage;
 
 // Close photo viewer
 function closePhotoViewer(event) {
@@ -3061,7 +3086,8 @@ if (editProfile === '1') {
 
 // Handle ?band= parameter (from OG redirect)
 if (bandLandingId) {
-    document.getElementById('screen0').classList.remove('active');
+    const screenFeed = document.getElementById('screenFeed');
+    if (screenFeed) screenFeed.classList.remove('active');
     showGlobalHeader();
     showBandInviteLanding(bandLandingId);
 }
@@ -3116,12 +3142,18 @@ const chatConversationId = chatMatch ? chatMatch[1] : null;
 const rehearsalMatch = window.location.pathname.match(/^\/r\/([a-zA-Z0-9]+)$/);
 const rehearsalId = rehearsalMatch ? rehearsalMatch[1] : null;
 
+// Helper to hide feed screen
+function hideFeedScreen() {
+    const screenFeed = document.getElementById('screenFeed');
+    if (screenFeed) screenFeed.classList.remove('active');
+}
+
 // Route to appropriate view
 if (isPrivacyPage) {
-    document.getElementById('screen0').classList.remove('active');
+    hideFeedScreen();
     showPrivacy();
 } else if (isTermsPage) {
-    document.getElementById('screen0').classList.remove('active');
+    hideFeedScreen();
     showTerms();
 } else if (isBandsPage) {
     // Will be handled after auth
@@ -3152,7 +3184,7 @@ if (isPrivacyPage) {
     window.pendingChatConversationId = chatConversationId;
 } else if (rehearsalId) {
     // Show rehearsal detail directly (like gigs)
-    document.getElementById('screen0').classList.remove('active');
+    hideFeedScreen();
     showGlobalHeader();
     showRehearsalDetail(rehearsalId);
 } else if (bandDetailId) {
@@ -3160,7 +3192,7 @@ if (isPrivacyPage) {
     window.pendingBandDetail = bandDetailId;
 } else if (bandInviteId) {
     // Band invite via /b/ path - show landing page
-    document.getElementById('screen0').classList.remove('active');
+    hideFeedScreen();
     showGlobalHeader();
     showBandInviteLanding(bandInviteId);
 } else if (joinBandId) {
@@ -3175,18 +3207,18 @@ if (isPrivacyPage) {
     window.history.replaceState({}, '', '/');
 } else if (eventGigId) {
     // Event card view (shareable confirmation page)
-    document.getElementById('screen0').classList.remove('active');
+    hideFeedScreen();
     showGlobalHeader();
     loadEventCard(eventGigId);
 } else if (leaderGigId) {
     // Leader dashboard view
-    document.getElementById('screen0').classList.remove('active');
+    hideFeedScreen();
     document.getElementById('screen6').classList.add('active');
     window.currentGigId = leaderGigId;
     loadDashboard(leaderGigId);
 } else if (gigId) {
     // Musician availability view
-    document.getElementById('screen0').classList.remove('active');
+    hideFeedScreen();
     showGlobalHeader();
     loadGig(gigId);
 }
@@ -3439,56 +3471,85 @@ window.dismissWhatsNew = dismissWhatsNew;
 
 // Tab navigation
 function switchTab(tab) {
-    // Close create sheet if open (unless we're opening it)
-    if (tab !== 'create') {
-        closeCreateSheet();
-    }
+    // Close create sheet if open
+    closeCreateSheet();
 
     // Update active tab button
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+    const tabBtn = document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1));
+    if (tabBtn) tabBtn.classList.add('active');
 
     // Handle tab action
     switch(tab) {
-        case 'home':
-            showDiscoveryHome();
+        case 'feed':
+            showFeedHome();
             break;
-        case 'schedule':
-            showMySchedule();
-            break;
-        case 'bands':
-            showMyBands();
+        case 'discover':
+            showDiscoverScreen();
             break;
         case 'messages':
             showConversations();
             break;
-        case 'create':
-            openCreateSheet();
+        case 'profile':
+            showOwnProfile();
             break;
     }
 }
 window.switchTab = switchTab;
 
-// Show discovery home screen
-function showDiscoveryHome() {
+// Show social feed home screen (new home)
+function showFeedHome() {
     // Hide all screens
     document.querySelectorAll('.screen').forEach(s => {
         s.classList.remove('active');
         s.style.display = '';
     });
-    const screen0 = document.getElementById('screen0');
-    screen0.classList.add('active');
-    screen0.style.display = 'block';
+    const screenFeed = document.getElementById('screenFeed');
+    if (screenFeed) {
+        screenFeed.classList.add('active');
+        screenFeed.style.display = 'block';
+    }
     showGlobalHeader();
     document.body.classList.remove('hide-tab-bar');
     const tabBar = document.getElementById('bottomTabBar');
     if (tabBar) tabBar.style.display = 'flex';
-    
+
     // Clear URL
     window.history.replaceState({}, '', '/');
-    
-    // Load the feed
+
+    // Update user avatar in create post prompt
+    updateFeedUserAvatar();
+
+    // Load the social feed
+    loadSocialFeed();
+}
+window.showFeedHome = showFeedHome;
+
+// Show discover screen (musician discovery)
+function showDiscoverScreen() {
+    // Hide all screens
+    document.querySelectorAll('.screen').forEach(s => {
+        s.classList.remove('active');
+        s.style.display = '';
+    });
+    const screenDiscover = document.getElementById('screenDiscover');
+    if (screenDiscover) {
+        screenDiscover.classList.add('active');
+        screenDiscover.style.display = 'block';
+    }
+    showGlobalHeader();
+    document.body.classList.remove('hide-tab-bar');
+    const tabBar = document.getElementById('bottomTabBar');
+    if (tabBar) tabBar.style.display = 'flex';
+
+    // Load the discovery feed
     loadDiscoveryFeed();
+}
+window.showDiscoverScreen = showDiscoverScreen;
+
+// Legacy function - redirect to new feed home
+function showDiscoveryHome() {
+    showFeedHome();
 }
 window.showDiscoveryHome = showDiscoveryHome;
 
@@ -5088,10 +5149,11 @@ window.openCreateSheet = openCreateSheet;
 function closeCreateSheet() {
     document.getElementById('createSheetOverlay').classList.remove('visible');
     document.getElementById('createSheet').classList.remove('visible');
-    
-    // Reset the Create tab to not be active (home should be)
+
+    // Reset the Create tab to not be active (feed should be)
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('tabHome').classList.add('active');
+    const tabFeed = document.getElementById('tabFeed');
+    if (tabFeed) tabFeed.classList.add('active');
 }
 window.closeCreateSheet = closeCreateSheet;
 
@@ -5115,16 +5177,16 @@ function showTabBar() {
 }
 window.showTabBar = showTabBar;
 
-// Initialize discovery feed on page load if on home screen
+// Initialize social feed on page load if on home screen
 document.addEventListener('DOMContentLoaded', function() {
-    // Only load discovery feed if we're at root path and screen0 is active
+    // Only load social feed if we're at root path and screenFeed is active
     const path = window.location.pathname;
-    const screen0 = document.getElementById('screen0');
-    
-    if (screen0 && screen0.classList.contains('active') && (path === '/' || path === '')) {
-        console.log("Initializing discovery feed on page load...");
+    const screenFeed = document.getElementById('screenFeed');
+
+    if (screenFeed && screenFeed.classList.contains('active') && (path === '/' || path === '')) {
+        console.log("Initializing social feed on page load...");
         setTimeout(() => {
-            loadDiscoveryFeed();
+            loadSocialFeed();
         }, 100);
     }
 });
@@ -5252,9 +5314,9 @@ async function showCreateRehearsal() {
     }
 
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    // Explicitly hide screen0 which may have inline display style
-    const screen0 = document.getElementById('screen0');
-    if (screen0) screen0.style.display = 'none';
+    // Explicitly hide screenFeed which may have inline display style
+    const screenFeed = document.getElementById('screenFeed');
+    if (screenFeed) screenFeed.style.display = 'none';
     document.getElementById('screenCreateRehearsal').classList.add('active');
 
     // Update URL
@@ -6000,10 +6062,10 @@ function renderScheduleItem(item, isPast) {
 
 // Show rehearsal detail screen
 async function showRehearsalDetail(rehearsalId) {
-    // Ensure all screens are hidden, especially screen0
+    // Ensure all screens are hidden, especially screenFeed
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    const screen0 = document.getElementById('screen0');
-    if (screen0) screen0.style.display = 'none';
+    const screenFeed = document.getElementById('screenFeed');
+    if (screenFeed) screenFeed.style.display = 'none';
 
     // Show rehearsal detail screen
     const detailScreen = document.getElementById('screenRehearsalDetail');
@@ -6449,3 +6511,780 @@ window.viewLinkedGig = viewLinkedGig;
 
 // Backward compatibility - redirect showMyGigs to showMySchedule
 window.showMyGigs = showMySchedule;
+
+// ============================================
+// SOCIAL FEED FUNCTIONS
+// ============================================
+
+// Show own profile (Me tab)
+function showOwnProfile() {
+    if (window.currentUser) {
+        viewMusicianProfile(window.currentUser.uid);
+    } else {
+        // Show sign in prompt or redirect to sign in
+        alert('Please sign in to view your profile');
+    }
+}
+window.showOwnProfile = showOwnProfile;
+
+// Update user avatar in feed
+function updateFeedUserAvatar() {
+    const avatar = document.getElementById('feedUserAvatar');
+    const createAvatar = document.getElementById('createPostAvatar');
+    const authorName = document.getElementById('createPostAuthorName');
+
+    if (window.currentUserProfile) {
+        const photoURL = window.currentUserProfile.profilePhotos?.[0] || '';
+        if (avatar) {
+            avatar.style.backgroundImage = photoURL ? `url('${photoURL}')` : '';
+            avatar.style.backgroundColor = photoURL ? 'transparent' : '#333';
+        }
+        if (createAvatar) {
+            createAvatar.style.backgroundImage = photoURL ? `url('${photoURL}')` : '';
+            createAvatar.style.backgroundColor = photoURL ? 'transparent' : '#333';
+        }
+        if (authorName) {
+            authorName.textContent = window.currentUserProfile.name || 'Anonymous';
+        }
+    }
+}
+
+// Load social feed
+async function loadSocialFeed() {
+    const feedContent = document.getElementById('socialFeedContent');
+    const feedLoading = document.getElementById('socialFeedLoading');
+    const feedEmpty = document.getElementById('socialFeedEmpty');
+    const createPrompt = document.querySelector('.create-post-prompt');
+    const signInPrompt = document.getElementById('signInPromptFeed');
+
+    if (!feedContent || !feedLoading || !feedEmpty) {
+        console.error("Social feed elements not found");
+        return;
+    }
+
+    // Show/hide create prompt based on auth state
+    if (createPrompt) {
+        createPrompt.style.display = window.currentUser ? 'flex' : 'none';
+    }
+    if (signInPrompt) {
+        signInPrompt.style.display = window.currentUser ? 'none' : 'block';
+    }
+
+    feedLoading.style.display = 'flex';
+    feedEmpty.style.display = 'none';
+    feedContent.innerHTML = '';
+
+    try {
+        // Query posts ordered by creation date
+        const postsQuery = query(
+            collection(db, "posts"),
+            orderBy("createdAt", "desc"),
+            firestoreLimit(50)
+        );
+
+        const snapshot = await getDocs(postsQuery);
+
+        feedLoading.style.display = 'none';
+
+        if (snapshot.empty) {
+            feedEmpty.style.display = 'block';
+            return;
+        }
+
+        let postsHtml = '';
+        snapshot.forEach(docSnap => {
+            const post = { id: docSnap.id, ...docSnap.data() };
+            postsHtml += renderPostCard(post);
+        });
+
+        feedContent.innerHTML = postsHtml;
+
+    } catch (error) {
+        console.error("Error loading social feed:", error);
+        feedLoading.style.display = 'none';
+        feedContent.innerHTML = '<div class="feed-error">Error loading feed. Please try again.</div>';
+    }
+}
+window.loadSocialFeed = loadSocialFeed;
+
+// Format time ago
+function formatTimeAgo(date) {
+    if (!date) return '';
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+// Render a post card
+function renderPostCard(post) {
+    const isOwner = window.currentUser?.uid === post.authorId;
+    const timeAgo = formatTimeAgo(post.createdAt?.toDate ? post.createdAt.toDate() : post.createdAt);
+    const instruments = post.authorInstruments?.join(', ') || '';
+    const meta = instruments ? `${instruments} · ${timeAgo}` : timeAgo;
+
+    let imageHtml = '';
+    if (post.imageUrl) {
+        imageHtml = `<div class="post-image"><img src="${post.imageUrl}" alt="Post image" onclick="event.stopPropagation(); viewSingleImage('${post.imageUrl}')"></div>`;
+    }
+
+    let linkPreviewHtml = '';
+    if (post.linkPreview && post.linkUrl) {
+        linkPreviewHtml = `
+            <a href="${escapeHtml(post.linkUrl)}" target="_blank" rel="noopener" class="post-link-preview" onclick="event.stopPropagation();">
+                ${post.linkPreview.image ? `<img class="post-link-image" src="${escapeHtml(post.linkPreview.image)}" alt="">` : ''}
+                <div class="post-link-info">
+                    <div class="post-link-title">${escapeHtml(post.linkPreview.title || post.linkUrl)}</div>
+                    ${post.linkPreview.description ? `<div class="post-link-description">${escapeHtml(post.linkPreview.description)}</div>` : ''}
+                    <div class="post-link-url">${escapeHtml(new URL(post.linkUrl).hostname)}</div>
+                </div>
+            </a>
+        `;
+    }
+
+    const menuHtml = isOwner ? `
+        <button class="post-menu-btn" onclick="event.stopPropagation(); showPostMenu('${post.id}')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+            </svg>
+        </button>
+    ` : '';
+
+    return `
+        <div class="post-card" onclick="showPostDetail('${post.id}')">
+            <div class="post-author">
+                <div class="post-author-photo" style="background-image: url('${post.authorPhoto || ''}'); ${!post.authorPhoto ? 'background-color: #333;' : ''}" onclick="event.stopPropagation(); viewMusicianProfile('${post.authorId}')"></div>
+                <div class="post-author-info">
+                    <span class="post-author-name" onclick="event.stopPropagation(); viewMusicianProfile('${post.authorId}')">${escapeHtml(post.authorName || 'Anonymous')}</span>
+                    <span class="post-author-meta">${escapeHtml(meta)}</span>
+                </div>
+                ${menuHtml}
+            </div>
+            <div class="post-content">${escapeHtml(post.content || '')}</div>
+            ${imageHtml}
+            ${linkPreviewHtml}
+            <div class="post-stats">
+                <span class="post-comment-count">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+                    ${post.commentCount || 0}
+                </span>
+            </div>
+        </div>
+    `;
+}
+
+// Show post menu (for deletion)
+function showPostMenu(postId) {
+    const confirmed = confirm('Delete this post?');
+    if (confirmed) {
+        deletePost(postId);
+    }
+}
+window.showPostMenu = showPostMenu;
+
+// Delete a post
+async function deletePost(postId) {
+    if (!window.currentUser) return;
+
+    try {
+        // First verify ownership
+        const postRef = doc(db, "posts", postId);
+        const postSnap = await getDoc(postRef);
+
+        if (!postSnap.exists()) {
+            alert('Post not found');
+            return;
+        }
+
+        if (postSnap.data().authorId !== window.currentUser.uid) {
+            alert('You can only delete your own posts');
+            return;
+        }
+
+        // Delete the post
+        await deleteDoc(postRef);
+
+        // Refresh feed or remove from DOM
+        const postElement = document.querySelector(`.post-card[onclick*="${postId}"]`);
+        if (postElement) {
+            postElement.remove();
+        }
+
+        // If we're on post detail, go back to feed
+        const postDetailScreen = document.getElementById('screenPostDetail');
+        if (postDetailScreen && postDetailScreen.classList.contains('active')) {
+            showFeedHome();
+        }
+
+    } catch (error) {
+        console.error("Error deleting post:", error);
+        alert('Error deleting post: ' + error.message);
+    }
+}
+window.deletePost = deletePost;
+
+// ============================================
+// CREATE POST FUNCTIONS
+// ============================================
+
+// State for post creation
+window.pendingPostImage = null;
+window.pendingPostImageUrl = null;
+window.pendingLinkUrl = null;
+window.pendingLinkPreview = null;
+
+// Show create post screen
+function showCreatePost() {
+    if (!window.currentUser) {
+        alert('Please sign in to create a post');
+        return;
+    }
+
+    // Update avatar and name
+    updateFeedUserAvatar();
+
+    // Clear previous state
+    document.getElementById('createPostInput').value = '';
+    document.getElementById('createPostImagePreview').style.display = 'none';
+    document.getElementById('createPostLinkPreview').style.display = 'none';
+    window.pendingPostImage = null;
+    window.pendingPostImageUrl = null;
+    window.pendingLinkUrl = null;
+    window.pendingLinkPreview = null;
+
+    // Show screen
+    document.querySelectorAll('.screen').forEach(s => {
+        s.classList.remove('active');
+        s.style.display = '';
+    });
+    const screen = document.getElementById('screenCreatePost');
+    if (screen) {
+        screen.classList.add('active');
+        screen.style.display = 'block';
+    }
+
+    // Hide tab bar
+    document.body.classList.add('hide-tab-bar');
+    hideGlobalHeader();
+
+    // Focus input
+    setTimeout(() => {
+        document.getElementById('createPostInput')?.focus();
+    }, 100);
+}
+window.showCreatePost = showCreatePost;
+
+// Hide create post screen
+function hideCreatePost() {
+    showFeedHome();
+}
+window.hideCreatePost = hideCreatePost;
+
+// Trigger image upload
+function triggerPostImageUpload() {
+    document.getElementById('postImageInput')?.click();
+}
+window.triggerPostImageUpload = triggerPostImageUpload;
+
+// Handle image selection
+async function handlePostImageSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Check file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+        alert('Image must be less than 10MB');
+        return;
+    }
+
+    // Convert HEIC if needed
+    let processedFile = file;
+    if (file.type === 'image/heic' || file.name.toLowerCase().endsWith('.heic')) {
+        try {
+            const blob = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.8 });
+            processedFile = new File([blob], file.name.replace(/\.heic$/i, '.jpg'), { type: 'image/jpeg' });
+        } catch (e) {
+            console.error('HEIC conversion failed:', e);
+        }
+    }
+
+    window.pendingPostImage = processedFile;
+
+    // Show preview
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        document.getElementById('createPostImagePreviewImg').src = e.target.result;
+        document.getElementById('createPostImagePreview').style.display = 'block';
+    };
+    reader.readAsDataURL(processedFile);
+
+    // Clear link preview if showing image
+    window.pendingLinkUrl = null;
+    window.pendingLinkPreview = null;
+    document.getElementById('createPostLinkPreview').style.display = 'none';
+}
+window.handlePostImageSelect = handlePostImageSelect;
+
+// Remove post image
+function removePostImage() {
+    window.pendingPostImage = null;
+    window.pendingPostImageUrl = null;
+    document.getElementById('createPostImagePreview').style.display = 'none';
+    document.getElementById('postImageInput').value = '';
+}
+window.removePostImage = removePostImage;
+
+// Handle post input change (detect URLs)
+let linkDetectTimeout = null;
+function handlePostInputChange() {
+    const input = document.getElementById('createPostInput');
+    const content = input.value;
+
+    // Don't detect links if we already have an image
+    if (window.pendingPostImage) return;
+
+    // Debounce URL detection
+    clearTimeout(linkDetectTimeout);
+    linkDetectTimeout = setTimeout(() => {
+        detectAndFetchLinkPreview(content);
+    }, 500);
+}
+window.handlePostInputChange = handlePostInputChange;
+
+// Detect URL in text and fetch preview
+async function detectAndFetchLinkPreview(text) {
+    // Simple URL regex
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const matches = text.match(urlRegex);
+
+    if (!matches || matches.length === 0) {
+        // No URL found, hide preview
+        if (!window.pendingLinkUrl) {
+            document.getElementById('createPostLinkPreview').style.display = 'none';
+        }
+        return;
+    }
+
+    const url = matches[0];
+
+    // Don't re-fetch if same URL
+    if (url === window.pendingLinkUrl) return;
+
+    window.pendingLinkUrl = url;
+
+    // Show loading state
+    document.getElementById('createPostLinkPreview').style.display = 'block';
+    document.getElementById('linkPreviewLoading').style.display = 'flex';
+    document.getElementById('linkPreviewContent').style.display = 'none';
+
+    try {
+        // Call cloud function to fetch link preview
+        const functionsBaseUrl = window.FUNCTIONS_EMULATOR_URL || 'https://us-central1-bandcal-89c81.cloudfunctions.net';
+        const response = await fetch(`${functionsBaseUrl}/fetchLinkPreview?url=${encodeURIComponent(url)}`);
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch preview');
+        }
+
+        const preview = await response.json();
+
+        // Check if URL is still the same (user might have changed text)
+        if (url !== window.pendingLinkUrl) return;
+
+        window.pendingLinkPreview = preview;
+
+        // Update preview UI
+        document.getElementById('linkPreviewLoading').style.display = 'none';
+        document.getElementById('linkPreviewContent').style.display = 'block';
+
+        if (preview.image) {
+            document.getElementById('linkPreviewImage').src = preview.image;
+            document.getElementById('linkPreviewImage').style.display = 'block';
+        } else {
+            document.getElementById('linkPreviewImage').style.display = 'none';
+        }
+
+        document.getElementById('linkPreviewTitle').textContent = preview.title || url;
+        document.getElementById('linkPreviewDescription').textContent = preview.description || '';
+        document.getElementById('linkPreviewUrl').textContent = new URL(url).hostname;
+
+    } catch (error) {
+        console.error('Error fetching link preview:', error);
+        // Hide preview on error
+        document.getElementById('createPostLinkPreview').style.display = 'none';
+        window.pendingLinkUrl = null;
+        window.pendingLinkPreview = null;
+    }
+}
+
+// Remove post link
+function removePostLink() {
+    window.pendingLinkUrl = null;
+    window.pendingLinkPreview = null;
+    document.getElementById('createPostLinkPreview').style.display = 'none';
+}
+window.removePostLink = removePostLink;
+
+// Upload post image to Firebase Storage
+async function uploadPostImage(file) {
+    const userId = window.currentUser.uid;
+    const timestamp = Date.now();
+    const fileRef = storageRef(storage, `post-images/${userId}/${timestamp}_${file.name}`);
+    await uploadBytes(fileRef, file);
+    return await getDownloadURL(fileRef);
+}
+
+// Submit post
+async function submitPost() {
+    const content = document.getElementById('createPostInput').value.trim();
+
+    if (!content && !window.pendingPostImage) {
+        alert('Please enter some text or add an image');
+        return;
+    }
+
+    if (!window.currentUser || !window.currentUserProfile) {
+        alert('Please sign in to post');
+        return;
+    }
+
+    const submitBtn = document.getElementById('submitPostBtn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Posting...';
+
+    try {
+        let imageUrl = null;
+
+        // Upload image if present
+        if (window.pendingPostImage) {
+            imageUrl = await uploadPostImage(window.pendingPostImage);
+        }
+
+        // Create post document
+        const postData = {
+            authorId: window.currentUser.uid,
+            authorName: window.currentUserProfile.name || 'Anonymous',
+            authorPhoto: window.currentUserProfile.profilePhotos?.[0] || '',
+            authorInstruments: window.currentUserProfile.instruments || [],
+            content: content,
+            commentCount: 0,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+        };
+
+        if (imageUrl) {
+            postData.imageUrl = imageUrl;
+        }
+
+        if (window.pendingLinkUrl && window.pendingLinkPreview) {
+            postData.linkUrl = window.pendingLinkUrl;
+            postData.linkPreview = window.pendingLinkPreview;
+        }
+
+        await addDoc(collection(db, "posts"), postData);
+
+        // Clear state and go back to feed
+        window.pendingPostImage = null;
+        window.pendingPostImageUrl = null;
+        window.pendingLinkUrl = null;
+        window.pendingLinkPreview = null;
+
+        showFeedHome();
+
+    } catch (error) {
+        console.error("Error creating post:", error);
+        alert('Error creating post: ' + error.message);
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Post';
+    }
+}
+window.submitPost = submitPost;
+
+// ============================================
+// POST DETAIL & COMMENTS
+// ============================================
+
+window.currentPostId = null;
+window.currentPostData = null;
+
+// Show post detail
+async function showPostDetail(postId) {
+    window.currentPostId = postId;
+
+    // Show screen
+    document.querySelectorAll('.screen').forEach(s => {
+        s.classList.remove('active');
+        s.style.display = '';
+    });
+    const screen = document.getElementById('screenPostDetail');
+    if (screen) {
+        screen.classList.add('active');
+        screen.style.display = 'block';
+    }
+
+    // Hide tab bar
+    document.body.classList.add('hide-tab-bar');
+    hideGlobalHeader();
+
+    // Clear previous content
+    document.getElementById('postDetailContent').innerHTML = '<div class="feed-loading"><div class="spinner"></div></div>';
+    document.getElementById('postCommentsList').innerHTML = '';
+    document.getElementById('postCommentsCount').textContent = '0 comments';
+
+    try {
+        // Fetch post
+        const postRef = doc(db, "posts", postId);
+        const postSnap = await getDoc(postRef);
+
+        if (!postSnap.exists()) {
+            document.getElementById('postDetailContent').innerHTML = '<div class="feed-error">Post not found</div>';
+            return;
+        }
+
+        const post = { id: postSnap.id, ...postSnap.data() };
+        window.currentPostData = post;
+
+        // Render post
+        const isOwner = window.currentUser?.uid === post.authorId;
+        const timeAgo = formatTimeAgo(post.createdAt?.toDate ? post.createdAt.toDate() : post.createdAt);
+        const instruments = post.authorInstruments?.join(', ') || '';
+        const meta = instruments ? `${instruments} · ${timeAgo}` : timeAgo;
+
+        let imageHtml = '';
+        if (post.imageUrl) {
+            imageHtml = `<div class="post-detail-image"><img src="${post.imageUrl}" alt="Post image" onclick="viewSingleImage('${post.imageUrl}')"></div>`;
+        }
+
+        let linkPreviewHtml = '';
+        if (post.linkPreview && post.linkUrl) {
+            linkPreviewHtml = `
+                <a href="${escapeHtml(post.linkUrl)}" target="_blank" rel="noopener" class="post-link-preview">
+                    ${post.linkPreview.image ? `<img class="post-link-image" src="${escapeHtml(post.linkPreview.image)}" alt="">` : ''}
+                    <div class="post-link-info">
+                        <div class="post-link-title">${escapeHtml(post.linkPreview.title || post.linkUrl)}</div>
+                        ${post.linkPreview.description ? `<div class="post-link-description">${escapeHtml(post.linkPreview.description)}</div>` : ''}
+                        <div class="post-link-url">${escapeHtml(new URL(post.linkUrl).hostname)}</div>
+                    </div>
+                </a>
+            `;
+        }
+
+        const deleteHtml = isOwner ? `
+            <button class="post-delete-btn" onclick="deletePost('${post.id}')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                </svg>
+                Delete Post
+            </button>
+        ` : '';
+
+        document.getElementById('postDetailContent').innerHTML = `
+            <div class="post-detail-author" onclick="viewMusicianProfile('${post.authorId}')">
+                <div class="post-author-photo" style="background-image: url('${post.authorPhoto || ''}'); ${!post.authorPhoto ? 'background-color: #333;' : ''}"></div>
+                <div class="post-author-info">
+                    <span class="post-author-name">${escapeHtml(post.authorName || 'Anonymous')}</span>
+                    <span class="post-author-meta">${escapeHtml(meta)}</span>
+                </div>
+            </div>
+            <div class="post-detail-text">${escapeHtml(post.content || '')}</div>
+            ${imageHtml}
+            ${linkPreviewHtml}
+            ${deleteHtml}
+        `;
+
+        // Update comment count
+        document.getElementById('postCommentsCount').textContent = `${post.commentCount || 0} comment${post.commentCount === 1 ? '' : 's'}`;
+
+        // Load comments
+        loadComments(postId);
+
+    } catch (error) {
+        console.error("Error loading post:", error);
+        document.getElementById('postDetailContent').innerHTML = '<div class="feed-error">Error loading post</div>';
+    }
+}
+window.showPostDetail = showPostDetail;
+
+// Hide post detail
+function hidePostDetail() {
+    window.currentPostId = null;
+    window.currentPostData = null;
+    showFeedHome();
+}
+window.hidePostDetail = hidePostDetail;
+
+// Load comments for a post
+async function loadComments(postId) {
+    const commentsList = document.getElementById('postCommentsList');
+
+    try {
+        const commentsQuery = query(
+            collection(db, "posts", postId, "comments"),
+            orderBy("createdAt", "asc")
+        );
+
+        const snapshot = await getDocs(commentsQuery);
+
+        if (snapshot.empty) {
+            commentsList.innerHTML = '<div class="no-comments">No comments yet. Be the first!</div>';
+            return;
+        }
+
+        let commentsHtml = '';
+        snapshot.forEach(docSnap => {
+            const comment = { id: docSnap.id, ...docSnap.data() };
+            commentsHtml += renderComment(comment, postId);
+        });
+
+        commentsList.innerHTML = commentsHtml;
+
+    } catch (error) {
+        console.error("Error loading comments:", error);
+        commentsList.innerHTML = '<div class="feed-error">Error loading comments</div>';
+    }
+}
+window.loadComments = loadComments;
+
+// Render a comment
+function renderComment(comment, postId) {
+    const isOwner = window.currentUser?.uid === comment.authorId;
+    const timeAgo = formatTimeAgo(comment.createdAt?.toDate ? comment.createdAt.toDate() : comment.createdAt);
+
+    const deleteHtml = isOwner ? `
+        <button class="comment-delete-btn" onclick="deleteComment('${postId}', '${comment.id}')">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+    ` : '';
+
+    return `
+        <div class="comment-card" data-comment-id="${comment.id}">
+            <div class="comment-avatar" style="background-image: url('${comment.authorPhoto || ''}'); ${!comment.authorPhoto ? 'background-color: #333;' : ''}" onclick="viewMusicianProfile('${comment.authorId}')"></div>
+            <div class="comment-body">
+                <div class="comment-header">
+                    <span class="comment-author" onclick="viewMusicianProfile('${comment.authorId}')">${escapeHtml(comment.authorName || 'Anonymous')}</span>
+                    <span class="comment-time">${timeAgo}</span>
+                    ${deleteHtml}
+                </div>
+                <div class="comment-content">${escapeHtml(comment.content)}</div>
+            </div>
+        </div>
+    `;
+}
+
+// Handle comment keypress (submit on Enter)
+function handleCommentKeypress(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        submitComment();
+    }
+}
+window.handleCommentKeypress = handleCommentKeypress;
+
+// Submit comment
+async function submitComment() {
+    const input = document.getElementById('commentInput');
+    const content = input.value.trim();
+
+    if (!content || !window.currentPostId) return;
+
+    if (!window.currentUser || !window.currentUserProfile) {
+        alert('Please sign in to comment');
+        return;
+    }
+
+    input.disabled = true;
+
+    try {
+        // Add comment
+        await addDoc(collection(db, "posts", window.currentPostId, "comments"), {
+            authorId: window.currentUser.uid,
+            authorName: window.currentUserProfile.name || 'Anonymous',
+            authorPhoto: window.currentUserProfile.profilePhotos?.[0] || '',
+            content: content,
+            createdAt: serverTimestamp()
+        });
+
+        // Increment comment count on post
+        await updateDoc(doc(db, "posts", window.currentPostId), {
+            commentCount: increment(1)
+        });
+
+        // Clear input
+        input.value = '';
+
+        // Reload comments
+        loadComments(window.currentPostId);
+
+        // Update comment count display
+        const currentCount = window.currentPostData?.commentCount || 0;
+        const newCount = currentCount + 1;
+        window.currentPostData.commentCount = newCount;
+        document.getElementById('postCommentsCount').textContent = `${newCount} comment${newCount === 1 ? '' : 's'}`;
+
+    } catch (error) {
+        console.error("Error submitting comment:", error);
+        alert('Error adding comment: ' + error.message);
+    } finally {
+        input.disabled = false;
+        input.focus();
+    }
+}
+window.submitComment = submitComment;
+
+// Delete comment
+async function deleteComment(postId, commentId) {
+    if (!window.currentUser) return;
+
+    const confirmed = confirm('Delete this comment?');
+    if (!confirmed) return;
+
+    try {
+        // Verify ownership
+        const commentRef = doc(db, "posts", postId, "comments", commentId);
+        const commentSnap = await getDoc(commentRef);
+
+        if (!commentSnap.exists()) {
+            alert('Comment not found');
+            return;
+        }
+
+        if (commentSnap.data().authorId !== window.currentUser.uid) {
+            alert('You can only delete your own comments');
+            return;
+        }
+
+        // Delete comment
+        await deleteDoc(commentRef);
+
+        // Decrement comment count
+        await updateDoc(doc(db, "posts", postId), {
+            commentCount: increment(-1)
+        });
+
+        // Remove from DOM
+        const commentElement = document.querySelector(`.comment-card[data-comment-id="${commentId}"]`);
+        if (commentElement) {
+            commentElement.remove();
+        }
+
+        // Update count display
+        if (window.currentPostData) {
+            const newCount = Math.max(0, (window.currentPostData.commentCount || 1) - 1);
+            window.currentPostData.commentCount = newCount;
+            document.getElementById('postCommentsCount').textContent = `${newCount} comment${newCount === 1 ? '' : 's'}`;
+        }
+
+    } catch (error) {
+        console.error("Error deleting comment:", error);
+        alert('Error deleting comment: ' + error.message);
+    }
+}
+window.deleteComment = deleteComment;
