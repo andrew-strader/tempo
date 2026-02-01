@@ -6534,7 +6534,7 @@ function updateFeedUserAvatar() {
     const authorName = document.getElementById('createPostAuthorName');
 
     if (window.currentUserProfile) {
-        const photoURL = window.currentUserProfile.profilePhotos?.[0] || '';
+        const photoURL = window.currentUserProfile.photoURL || '';
         if (avatar) {
             avatar.style.backgroundImage = photoURL ? `url('${photoURL}')` : '';
             avatar.style.backgroundColor = photoURL ? 'transparent' : '#333';
@@ -6971,7 +6971,7 @@ async function submitPost() {
         const postData = {
             authorId: window.currentUser.uid,
             authorName: window.currentUserProfile.name || 'Anonymous',
-            authorPhoto: window.currentUserProfile.profilePhotos?.[0] || '',
+            authorPhoto: window.currentUserProfile.photoURL || '',
             authorInstruments: window.currentUserProfile.instruments || [],
             content: content,
             commentCount: 0,
@@ -7207,7 +7207,7 @@ async function submitComment() {
         await addDoc(collection(db, "posts", window.currentPostId, "comments"), {
             authorId: window.currentUser.uid,
             authorName: window.currentUserProfile.name || 'Anonymous',
-            authorPhoto: window.currentUserProfile.profilePhotos?.[0] || '',
+            authorPhoto: window.currentUserProfile.photoURL || '',
             content: content,
             createdAt: serverTimestamp()
         });
