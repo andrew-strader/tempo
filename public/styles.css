@@ -6877,3 +6877,211 @@ body.hide-tab-bar .container.has-tab-bar {
     color: #ff6666;
     font-size: 14px;
 }
+
+/* ============================================
+   BANDS SCREEN (Combined Bands + Schedule)
+   ============================================ */
+
+.bands-screen {
+    padding: 0;
+}
+
+.bands-section {
+    margin-bottom: 24px;
+}
+
+.bands-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding: 0 4px;
+}
+
+.bands-section-header h2 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    margin: 0;
+}
+
+.bands-add-btn {
+    background: transparent;
+    border: 1px solid #444;
+    color: #4CAF50;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.bands-add-btn:hover {
+    background: rgba(76, 175, 80, 0.1);
+    border-color: #4CAF50;
+}
+
+/* Upcoming Events List */
+.bands-upcoming-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.bands-event-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #1a1a1c;
+    border-radius: 12px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.bands-event-card:hover {
+    background: #222;
+}
+
+.bands-event-icon {
+    width: 40px;
+    height: 40px;
+    background: #2a2a2c;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4CAF50;
+    flex-shrink: 0;
+}
+
+.bands-event-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.bands-event-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bands-event-subtitle {
+    font-size: 13px;
+    color: #888;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bands-event-date {
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.bands-event-date-day {
+    font-size: 13px;
+    color: #fff;
+    font-weight: 500;
+}
+
+.bands-event-date-time {
+    font-size: 12px;
+    color: #888;
+}
+
+/* Bands List */
+.bands-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.bands-band-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #1a1a1c;
+    border-radius: 12px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.bands-band-card:hover {
+    background: #222;
+}
+
+.bands-band-photo {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    background-size: cover;
+    background-position: center;
+    flex-shrink: 0;
+}
+
+.bands-band-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.bands-band-name {
+    font-size: 16px;
+    font-weight: 500;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bands-band-role {
+    font-size: 13px;
+    color: #888;
+}
+
+.bands-band-arrow {
+    color: #666;
+    flex-shrink: 0;
+}
+
+/* Empty State */
+.bands-empty-state {
+    text-align: center;
+    padding: 24px 16px;
+    color: #888;
+    font-size: 14px;
+}
+
+/* View All Button */
+.bands-view-all-btn {
+    width: 100%;
+    background: transparent;
+    border: 1px solid #333;
+    color: #4CAF50;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: all 0.2s;
+}
+
+.bands-view-all-btn:hover {
+    background: rgba(76, 175, 80, 0.1);
+    border-color: #4CAF50;
+}
+
+/* Sign In Prompt */
+.bands-sign-in-prompt {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.bands-sign-in-prompt p {
+    color: #888;
+    margin-bottom: 16px;
+}

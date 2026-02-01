@@ -3484,6 +3484,9 @@ function switchTab(tab) {
         case 'feed':
             showFeedHome();
             break;
+        case 'bands':
+            showBandsScreen();
+            break;
         case 'discover':
             showDiscoverScreen();
             break;
@@ -3524,6 +3527,272 @@ function showFeedHome() {
     loadSocialFeed();
 }
 window.showFeedHome = showFeedHome;
+
+// Show bands screen (combined bands + schedule)
+function showBandsScreen() {
+    // Hide all screens
+    document.querySelectorAll('.screen').forEach(s => {
+        s.classList.remove('active');
+        s.style.display = '';
+    });
+    const screenBands = document.getElementById('screenBands');
+    if (screenBands) {
+        screenBands.classList.add('active');
+        screenBands.style.display = 'block';
+    }
+    showGlobalHeader();
+    document.body.classList.remove('hide-tab-bar');
+    const tabBar = document.getElementById('bottomTabBar');
+    if (tabBar) tabBar.style.display = 'flex';
+
+    // Update URL
+    window.history.replaceState({}, '', '/bands');
+
+    // Load bands screen content
+    loadBandsScreen();
+}
+window.showBandsScreen = showBandsScreen;
+
+// Load bands screen content
+async function loadBandsScreen() {
+    const upcomingList = document.getElementById('bandsUpcomingList');
+    const bandsList = document.getElementById('bandsList');
+    const signInPrompt = document.getElementById('bandsSignInPrompt');
+
+    // If not signed in, show sign in prompt
+    if (!window.currentUser) {
+        if (upcomingList) upcomingList.innerHTML = '';
+        if (bandsList) bandsList.innerHTML = '';
+        if (signInPrompt) signInPrompt.style.display = 'block';
+        return;
+    }
+
+    if (signInPrompt) signInPrompt.style.display = 'none';
+
+    // Load upcoming events and bands in parallel
+    await Promise.all([
+        loadBandsUpcoming(),
+        loadBandsList()
+    ]);
+}
+window.loadBandsScreen = loadBandsScreen;
+
+// Load upcoming gigs and rehearsals for bands screen
+async function loadBandsUpcoming() {
+    const container = document.getElementById('bandsUpcomingList');
+    if (!container) return;
+
+    container.innerHTML = '<div class="loading-spinner"></div>';
+
+    try {
+        const userId = window.currentUser.uid;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Get user's bands first
+        const membershipQuery = query(
+            collection(db, "bandMembers"),
+            where("userId", "==", userId)
+        );
+        const membershipSnap = await getDocs(membershipQuery);
+        const bandIds = membershipSnap.docs.map(d => d.data().bandId);
+
+        // Also get bands where user is the leader
+        const leaderQuery = query(
+            collection(db, "bands"),
+            where("leaderId", "==", userId)
+        );
+        const leaderSnap = await getDocs(leaderQuery);
+        leaderSnap.docs.forEach(d => {
+            if (!bandIds.includes(d.id)) bandIds.push(d.id);
+        });
+
+        if (bandIds.length === 0) {
+            container.innerHTML = '<div class="bands-empty-state">No upcoming events. Create a gig or join a band to get started.</div>';
+            return;
+        }
+
+        // Get gigs for user's bands
+        const gigsQuery = query(
+            collection(db, "gigs"),
+            where("createdBy", "==", userId)
+        );
+        const gigsSnap = await getDocs(gigsQuery);
+
+        // Get rehearsals for user's bands
+        const rehearsalsQuery = query(
+            collection(db, "rehearsals"),
+            where("createdBy", "==", userId)
+        );
+        const rehearsalsSnap = await getDocs(rehearsalsQuery);
+
+        const events = [];
+
+        // Process gigs
+        gigsSnap.forEach(doc => {
+            const gig = { id: doc.id, type: 'gig', ...doc.data() };
+            const gigDate = new Date(gig.showDate + 'T00:00:00');
+            if (gigDate >= today) {
+                events.push({
+                    ...gig,
+                    date: gigDate,
+                    title: gig.venue || gig.bandName,
+                    subtitle: gig.bandName
+                });
+            }
+        });
+
+        // Process rehearsals
+        rehearsalsSnap.forEach(doc => {
+            const rehearsal = { id: doc.id, type: 'rehearsal', ...doc.data() };
+            // Get the earliest confirmed time or first suggested time
+            let rehearsalDate = null;
+            if (rehearsal.confirmedTime) {
+                rehearsalDate = rehearsal.confirmedTime.toDate ? rehearsal.confirmedTime.toDate() : new Date(rehearsal.confirmedTime);
+            } else if (rehearsal.suggestedTimes && rehearsal.suggestedTimes.length > 0) {
+                const firstTime = rehearsal.suggestedTimes[0];
+                rehearsalDate = firstTime.toDate ? firstTime.toDate() : new Date(firstTime);
+            }
+            if (rehearsalDate && rehearsalDate >= today) {
+                events.push({
+                    ...rehearsal,
+                    date: rehearsalDate,
+                    title: 'Rehearsal' + (rehearsal.location ? ` @ ${rehearsal.location}` : ''),
+                    subtitle: rehearsal.bandName || 'Practice'
+                });
+            }
+        });
+
+        // Sort by date
+        events.sort((a, b) => a.date - b.date);
+
+        if (events.length === 0) {
+            container.innerHTML = '<div class="bands-empty-state">No upcoming events</div>';
+            return;
+        }
+
+        // Render events (limit to 5)
+        const displayEvents = events.slice(0, 5);
+        container.innerHTML = displayEvents.map(event => {
+            const dateStr = event.date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+            const timeStr = event.date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+            const icon = event.type === 'gig'
+                ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>'
+                : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+
+            const onclick = event.type === 'gig'
+                ? `openGig('${event.id}', 'viewer')`
+                : `showRehearsalDetail('${event.id}')`;
+
+            return `
+                <div class="bands-event-card" onclick="${onclick}">
+                    <div class="bands-event-icon">${icon}</div>
+                    <div class="bands-event-info">
+                        <div class="bands-event-title">${escapeHtml(event.title)}</div>
+                        <div class="bands-event-subtitle">${escapeHtml(event.subtitle)}</div>
+                    </div>
+                    <div class="bands-event-date">
+                        <div class="bands-event-date-day">${dateStr}</div>
+                        <div class="bands-event-date-time">${timeStr}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Add "View All" link if more than 5
+        if (events.length > 5) {
+            container.innerHTML += `<button class="bands-view-all-btn" onclick="showMySchedule()">View all ${events.length} events</button>`;
+        }
+
+    } catch (error) {
+        console.error("Error loading upcoming events:", error);
+        container.innerHTML = '<div class="bands-empty-state">Error loading events</div>';
+    }
+}
+window.loadBandsUpcoming = loadBandsUpcoming;
+
+// Load bands list for bands screen
+async function loadBandsList() {
+    const container = document.getElementById('bandsList');
+    if (!container) return;
+
+    container.innerHTML = '<div class="loading-spinner"></div>';
+
+    try {
+        const userId = window.currentUser.uid;
+
+        // Get bands where user is a member
+        const membershipQuery = query(
+            collection(db, "bandMembers"),
+            where("userId", "==", userId)
+        );
+        const membershipSnap = await getDocs(membershipQuery);
+
+        const bands = [];
+
+        // Get band details for each membership
+        for (const memberDoc of membershipSnap.docs) {
+            const membership = memberDoc.data();
+            const bandDoc = await getDoc(doc(db, "bands", membership.bandId));
+            if (bandDoc.exists()) {
+                bands.push({
+                    id: bandDoc.id,
+                    ...bandDoc.data(),
+                    role: membership.role
+                });
+            }
+        }
+
+        // Also get bands where user is the leader
+        const leaderQuery = query(
+            collection(db, "bands"),
+            where("leaderId", "==", userId)
+        );
+        const leaderSnap = await getDocs(leaderQuery);
+        leaderSnap.docs.forEach(d => {
+            if (!bands.find(b => b.id === d.id)) {
+                bands.push({
+                    id: d.id,
+                    ...d.data(),
+                    role: 'leader'
+                });
+            }
+        });
+
+        if (bands.length === 0) {
+            container.innerHTML = '<div class="bands-empty-state">No bands yet. Create or join a band!</div>';
+            return;
+        }
+
+        // Sort by name
+        bands.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+        container.innerHTML = bands.map(band => {
+            const roleLabel = band.role === 'leader' ? 'Leader' : band.role === 'admin' ? 'Admin' : 'Member';
+            const photoStyle = band.photoURL
+                ? `background-image: url('${band.photoURL}')`
+                : 'background-color: #333';
+
+            return `
+                <div class="bands-band-card" onclick="showBandDetail('${band.id}')">
+                    <div class="bands-band-photo" style="${photoStyle}"></div>
+                    <div class="bands-band-info">
+                        <div class="bands-band-name">${escapeHtml(band.name)}</div>
+                        <div class="bands-band-role">${roleLabel}</div>
+                    </div>
+                    <div class="bands-band-arrow">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error("Error loading bands:", error);
+        container.innerHTML = '<div class="bands-empty-state">Error loading bands</div>';
+    }
+}
+window.loadBandsList = loadBandsList;
 
 // Show discover screen (musician discovery)
 function showDiscoverScreen() {
