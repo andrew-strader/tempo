@@ -1,0 +1,23 @@
+{
+  "appId": "app.tempocal.tempo",
+  "appName": "Tempo",
+  "webDir": "public",
+  "server": {
+    "allowNavigation": [
+      "tempocal.app",
+      "*.firebaseapp.com",
+      "*.googleapis.com",
+      "accounts.google.com"
+    ]
+  },
+  "ios": {
+    "contentInset": "automatic",
+    "scheme": "Tempo"
+  },
+  "plugins": {
+    "FirebaseAuthentication": {
+      "skipNativeAuth": true,
+      "providers": ["google.com"]
+    }
+  }
+}
