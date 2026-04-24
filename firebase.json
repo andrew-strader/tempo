@@ -9,6 +9,7 @@
       "**/.*",
       "**/node_modules/**"
     ],
+    "cleanUrls": true,
     "rewrites": [
       {
         "source": "/e/**",
@@ -17,14 +18,6 @@
       {
         "source": "/b/**",
         "function": "bandPreview"
-      },
-      {
-        "source": "/privacy",
-        "destination": "/index.html"
-      },
-      {
-        "source": "/terms",
-        "destination": "/index.html"
       },
       {
         "source": "/bands",
@@ -41,6 +34,22 @@
       {
         "source": "/r/**",
         "destination": "/index.html"
+      },
+      {
+        "source": "/privacy",
+        "destination": "/privacy.html"
+      },
+      {
+        "source": "/terms",
+        "destination": "/terms.html"
+      },
+      {
+        "source": "/sms",
+        "destination": "/sms.html"
+      },
+      {
+        "source": "/sms-signup",
+        "destination": "/sms-signup.html"
       },
       {
         "source": "**",

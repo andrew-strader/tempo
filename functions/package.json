@@ -11,8 +11,12 @@
     "deploy": "firebase deploy --only functions"
   },
   "dependencies": {
+    "@types/markdown-it": "^14.1.2",
+    "acorn": "^8.15.0",
     "cheerio": "^1.0.0-rc.12",
     "firebase-admin": "^11.11.0",
-    "firebase-functions": "^4.5.0"
+    "firebase-functions": "^4.5.0",
+    "markdown-it": "^14.1.1",
+    "twilio": "^4.21.0"
   }
 }

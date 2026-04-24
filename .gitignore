@@ -134,3 +134,11 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Firebase deploy cache
+.firebase/
+
+# Capacitor iOS build artifacts
+ios/App/Pods/
+ios/App/App/public/
+ios/App/output/

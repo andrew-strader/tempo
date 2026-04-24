@@ -19,6 +19,14 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
 
+    // Band Messages subcollection (text blasts)
+    match /bands/{bandId}/messages/{messageId} {
+      // Any authenticated user can read band messages
+      allow read: if request.auth != null;
+      // Any authenticated user can create messages
+      allow create: if request.auth != null;
+    }
+
     // Band Members collection
     match /bandMembers/{memberId} {
       allow read: if request.auth != null;
@@ -86,6 +94,32 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.authorId;
       allow delete: if request.auth != null &&
         request.auth.uid == resource.data.authorId;
+    }
+
+    // User's personal contacts subcollection
+    match /users/{userId}/contacts/{contactId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // SMS Messages - only the sender can read their messages
+    match /smsMessages/{messageId} {
+      allow read: if request.auth != null &&
+        request.auth.uid == resource.data.sentBy;
+      // Only Cloud Functions can create/update (no client writes)
+      allow write: if false;
+    }
+
+    // Optouts - Cloud Functions only for writes, but allow read to check status
+    match /optouts/{phone} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // SMS opt-in consent records - written only by Cloud Functions (recordSmsOptIn).
+    // Read restricted to admin/server; no client reads or writes.
+    match /smsOptIns/{optInId} {
+      allow read: if false;
+      allow write: if false;
     }
   }
 }

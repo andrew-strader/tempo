@@ -10,6 +10,11 @@ const db = admin.firestore();
 const googleClientId = defineSecret('GOOGLE_CLIENT_ID');
 const googleClientSecret = defineSecret('GOOGLE_CLIENT_SECRET');
 
+// Define secrets for Twilio SMS
+const twilioAccountSid = defineSecret('TWILIO_ACCOUNT_SID');
+const twilioAuthToken = defineSecret('TWILIO_AUTH_TOKEN');
+const twilioPhoneNumber = defineSecret('TWILIO_PHONE_NUMBER');
+
 // OG Tags for link previews
 exports.ogTags = functions.https.onRequest(async (req, res) => {
   const path = req.path;
@@ -767,5 +772,416 @@ exports.fetchLinkPreview = functions.https.onRequest(async (req, res) => {
   } catch (error) {
     console.error('Error fetching link preview:', error);
     res.status(500).json({ error: 'Failed to fetch preview' });
+  }
+});
+
+// ============================================
+// TWILIO SMS FUNCTIONS
+// ============================================
+
+// Send a single SMS message
+exports.sendSMS = functions
+  .runWith({ secrets: [twilioAccountSid, twilioAuthToken, twilioPhoneNumber] })
+  .https.onCall(async (data, context) => {
+    // Require authentication
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Must be signed in');
+    }
+
+    const { recipientPhone, recipientName, body, referenceType, referenceId, messageType, isFirstContact } = data;
+
+    // Validate phone format (E.164)
+    if (!/^\+1[0-9]{10}$/.test(recipientPhone)) {
+      throw new functions.https.HttpsError('invalid-argument', 'Invalid phone number format. Use E.164 format (+1XXXXXXXXXX)');
+    }
+
+    // Check opt-out status
+    const optoutDoc = await db.collection('optouts').doc(recipientPhone).get();
+    if (optoutDoc.exists) {
+      throw new functions.https.HttpsError('failed-precondition', 'Recipient has opted out of SMS');
+    }
+
+    // Add opt-out language for first contact
+    let finalBody = body;
+    if (isFirstContact) {
+      finalBody += '\n\nReply STOP to unsubscribe from Tempo texts.';
+    }
+
+    // Send via Twilio
+    const twilio = require('twilio');
+    const client = twilio(twilioAccountSid.value(), twilioAuthToken.value());
+
+    try {
+      const message = await client.messages.create({
+        body: finalBody,
+        from: twilioPhoneNumber.value(),
+        to: recipientPhone
+      });
+
+      // Log to smsMessages collection
+      const messageDoc = await db.collection('smsMessages').add({
+        twilioSid: message.sid,
+        sentAt: admin.firestore.FieldValue.serverTimestamp(),
+        sentBy: context.auth.uid,
+        type: messageType || 'invite',
+        referenceType: referenceType || 'gig',
+        referenceId: referenceId || null,
+        recipientPhone,
+        recipientName: recipientName || '',
+        body: finalBody,
+        status: 'queued',
+        inboundReply: null,
+        replyAt: null
+      });
+
+      return { success: true, messageId: messageDoc.id, twilioSid: message.sid };
+    } catch (error) {
+      console.error('Twilio error:', error);
+      throw new functions.https.HttpsError('internal', 'Failed to send SMS: ' + error.message);
+    }
+  });
+
+// Handle inbound SMS from Twilio webhook
+exports.handleInboundSMS = functions
+  .runWith({ secrets: [twilioAuthToken] })
+  .https.onRequest(async (req, res) => {
+    const twilio = require('twilio');
+
+    // Validate Twilio signature
+    const signature = req.headers['x-twilio-signature'];
+    const url = 'https://us-central1-bandcal-89c81.cloudfunctions.net/handleInboundSMS';
+
+    // For form-urlencoded data, we need to parse the body
+    const params = req.body;
+
+    if (!twilio.validateRequest(twilioAuthToken.value(), signature, url, params)) {
+      console.error('Invalid Twilio signature');
+      res.status(403).send('Forbidden');
+      return;
+    }
+
+    const fromPhone = params.From; // E.164 format
+    const body = (params.Body || '').trim().toUpperCase();
+    const twiml = new twilio.twiml.MessagingResponse();
+
+    // Handle STOP (opt-out)
+    if (body === 'STOP' || body === 'UNSUBSCRIBE' || body === 'QUIT' || body === 'CANCEL') {
+      await db.collection('optouts').doc(fromPhone).set({
+        phone: fromPhone,
+        optedOutAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      twiml.message('You have been unsubscribed from Tempo texts. You can re-add your phone number in the Tempo app to resubscribe.');
+      res.type('text/xml').send(twiml.toString());
+      return;
+    }
+
+    // Handle START (opt back in)
+    if (body === 'START' || body === 'UNSTOP') {
+      await db.collection('optouts').doc(fromPhone).delete().catch(() => {});
+
+      twiml.message('You have been resubscribed to Tempo texts.');
+      res.type('text/xml').send(twiml.toString());
+      return;
+    }
+
+    // Parse RSVP response
+    let rsvpStatus = null;
+    if (['YES', 'Y', 'GOING', 'IN', 'YEP', 'YA', 'YEAH'].includes(body)) {
+      rsvpStatus = 'yes';
+    } else if (['NO', 'N', 'CANT', "CAN'T", 'OUT', 'NOPE', 'NAH'].includes(body)) {
+      rsvpStatus = 'no';
+    } else if (['MAYBE', 'M', 'UNSURE', '?', 'IDK', 'POSSIBLY'].includes(body)) {
+      rsvpStatus = 'maybe';
+    }
+
+    if (rsvpStatus) {
+      // Find the most recent outbound message to this phone
+      const recentMessages = await db.collection('smsMessages')
+        .where('recipientPhone', '==', fromPhone)
+        .where('type', '==', 'invite')
+        .orderBy('sentAt', 'desc')
+        .limit(1)
+        .get();
+
+      if (!recentMessages.empty) {
+        const msgDoc = recentMessages.docs[0];
+        const msgData = msgDoc.data();
+
+        // Update the smsMessages document
+        await msgDoc.ref.update({
+          inboundReply: body,
+          replyAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Update the invite in the gig/rehearsal document
+        const collectionName = msgData.referenceType === 'gig' ? 'gigs' : 'rehearsals';
+        const eventDoc = await db.collection(collectionName).doc(msgData.referenceId).get();
+
+        if (eventDoc.exists) {
+          const eventData = eventDoc.data();
+          const invites = eventData.invites || [];
+          const inviteIndex = invites.findIndex(i => i.phone === fromPhone);
+
+          if (inviteIndex >= 0) {
+            invites[inviteIndex].rsvp = rsvpStatus;
+            invites[inviteIndex].rsvpAt = admin.firestore.FieldValue.serverTimestamp();
+            await eventDoc.ref.update({ invites });
+          }
+        }
+
+        const confirmations = {
+          yes: "Got it! You're in. 🎸",
+          no: "Got it, you can't make it.",
+          maybe: "Got it, marked as maybe."
+        };
+        twiml.message(confirmations[rsvpStatus]);
+        res.type('text/xml').send(twiml.toString());
+        return;
+      }
+    }
+
+    // Unknown response
+    twiml.message('Reply YES, NO, or MAYBE to RSVP. Reply STOP to unsubscribe.');
+    res.type('text/xml').send(twiml.toString());
+  });
+
+// Send SMS to multiple recipients with rate limiting (HTTP version with CORS)
+exports.sendBulkSMS = functions
+  .runWith({
+    secrets: [twilioAccountSid, twilioAuthToken, twilioPhoneNumber],
+    timeoutSeconds: 300
+  })
+  .https.onRequest(async (req, res) => {
+    // Handle CORS
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
+
+    console.log('=== sendBulkSMS STARTED ===');
+
+    try {
+      // Verify Firebase Auth token
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        console.log('ERROR: No auth header');
+        res.status(401).json({ error: 'Unauthorized - no token' });
+        return;
+      }
+
+      const idToken = authHeader.split('Bearer ')[1];
+      let decodedToken;
+      try {
+        decodedToken = await admin.auth().verifyIdToken(idToken);
+      } catch (authError) {
+        console.log('ERROR: Invalid token', authError.message);
+        res.status(401).json({ error: 'Unauthorized - invalid token' });
+        return;
+      }
+
+      const uid = decodedToken.uid;
+      console.log('Auth verified, uid:', uid);
+
+      const { recipients, messageTemplate, referenceType, referenceId, messageType } = req.body;
+
+      if (!recipients || !Array.isArray(recipients)) {
+        res.status(400).json({ error: 'Recipients must be an array' });
+        return;
+      }
+
+      if (recipients.length > 50) {
+        res.status(400).json({ error: 'Maximum 50 recipients per batch' });
+        return;
+      }
+
+      if (!messageTemplate) {
+        res.status(400).json({ error: 'Message template is required' });
+        return;
+      }
+
+      console.log('Initializing Twilio...');
+      const twilio = require('twilio');
+      const client = twilio(twilioAccountSid.value(), twilioAuthToken.value());
+      const results = [];
+
+      // Get opt-outs
+      const optouts = new Set();
+      const optoutSnap = await db.collection('optouts').get();
+      optoutSnap.forEach(doc => optouts.add(doc.id));
+
+      for (let i = 0; i < recipients.length; i++) {
+        const recipient = recipients[i];
+
+        // Validate phone format
+        if (!/^\+1[0-9]{10}$/.test(recipient.phone)) {
+          results.push({ phone: recipient.phone, status: 'skipped', reason: 'invalid_format' });
+          continue;
+        }
+
+        // Skip opted-out numbers
+        if (optouts.has(recipient.phone)) {
+          results.push({ phone: recipient.phone, status: 'skipped', reason: 'opted_out' });
+          continue;
+        }
+
+        // Personalize message
+        let body = messageTemplate.replace('{name}', recipient.name || '');
+        if (recipient.isFirstContact) {
+          body += '\n\nReply STOP to unsubscribe from Tempo texts.';
+        }
+
+        try {
+          console.log(`Sending SMS to ${recipient.phone}...`);
+          const message = await client.messages.create({
+            body,
+            from: twilioPhoneNumber.value(),
+            to: recipient.phone
+          });
+
+          // Log message
+          await db.collection('smsMessages').add({
+            twilioSid: message.sid,
+            sentAt: admin.firestore.FieldValue.serverTimestamp(),
+            sentBy: uid,
+            type: messageType || 'invite',
+            referenceType: referenceType || 'gig',
+            referenceId: referenceId || null,
+            recipientPhone: recipient.phone,
+            recipientName: recipient.name || '',
+            body,
+            status: 'queued',
+            inboundReply: null,
+            replyAt: null
+          });
+
+          results.push({ phone: recipient.phone, status: 'sent', twilioSid: message.sid });
+          console.log(`SMS sent to ${recipient.phone}, sid: ${message.sid}`);
+
+        } catch (error) {
+          console.error(`Failed to send to ${recipient.phone}:`, error.message);
+          results.push({ phone: recipient.phone, status: 'failed', error: error.message });
+        }
+
+        // Rate limit: 1 second delay between messages
+        if (i < recipients.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      console.log('=== sendBulkSMS SUCCESS ===');
+      res.json({
+        results,
+        sent: results.filter(r => r.status === 'sent').length,
+        skipped: results.filter(r => r.status === 'skipped').length,
+        failed: results.filter(r => r.status === 'failed').length
+      });
+
+    } catch (error) {
+      console.error('=== sendBulkSMS ERROR ===');
+      console.error('Error:', error.message);
+      console.error('Stack:', error.stack);
+      res.status(500).json({ error: 'SMS sending failed: ' + error.message });
+    }
+  });
+
+// SMS status callback (optional - for delivery status updates)
+exports.smsStatusCallback = functions.https.onRequest(async (req, res) => {
+  const { MessageSid, MessageStatus } = req.body;
+
+  if (!MessageSid) {
+    res.status(400).send('Missing MessageSid');
+    return;
+  }
+
+  try {
+    // Update message status in smsMessages collection
+    const messagesSnap = await db.collection('smsMessages')
+      .where('twilioSid', '==', MessageSid)
+      .limit(1)
+      .get();
+
+    if (!messagesSnap.empty) {
+      await messagesSnap.docs[0].ref.update({
+        status: MessageStatus,
+        statusUpdatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    }
+
+    res.status(200).send('OK');
+  } catch (error) {
+    console.error('Error updating SMS status:', error);
+    res.status(500).send('Error');
+  }
+});
+
+// Record an SMS opt-in from the public webform at /sms-signup.
+// Stores a consent record with timestamp, IP, user agent, and the exact disclosure text shown.
+// TCR reviewers may audit these records to verify opt-in compliance.
+exports.recordSmsOptIn = functions.https.onRequest(async (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method not allowed' });
+    return;
+  }
+
+  try {
+    const {
+      fullName,
+      phone,
+      consentedAt,
+      disclosureText,
+      disclosureVersion,
+      source,
+      pageUrl
+    } = req.body || {};
+
+    if (!fullName || typeof fullName !== 'string' || fullName.length > 200) {
+      res.status(400).json({ error: 'Invalid name' });
+      return;
+    }
+    if (!phone || !/^\+1[0-9]{10}$/.test(phone)) {
+      res.status(400).json({ error: 'Invalid phone number' });
+      return;
+    }
+    if (!disclosureText || typeof disclosureText !== 'string') {
+      res.status(400).json({ error: 'Missing disclosure text' });
+      return;
+    }
+
+    const ip = (req.headers['x-forwarded-for'] || req.ip || '').toString().split(',')[0].trim();
+    const userAgent = (req.headers['user-agent'] || '').toString().slice(0, 500);
+
+    // Re-opt-in: if this number previously opted out, clear the opt-out record.
+    await db.collection('optouts').doc(phone).delete().catch(() => {});
+
+    await db.collection('smsOptIns').add({
+      fullName: fullName.trim().slice(0, 200),
+      phone,
+      consentedAt: consentedAt ? new Date(consentedAt) : new Date(),
+      disclosureText: disclosureText.slice(0, 2000),
+      disclosureVersion: disclosureVersion || null,
+      source: source || 'sms-signup-webform',
+      pageUrl: pageUrl ? pageUrl.slice(0, 500) : null,
+      ip: ip.slice(0, 64),
+      userAgent,
+      recordedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('recordSmsOptIn error:', error);
+    res.status(500).json({ error: 'Failed to record opt-in' });
   }
 });
