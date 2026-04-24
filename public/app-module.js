@@ -2,7 +2,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import { getFirestore, connectFirestoreEmulator, collection, addDoc, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, query, where, serverTimestamp, onSnapshot, orderBy, increment, limit as firestoreLimit } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js";
-import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+import { getFunctions, httpsCallable, connectFunctionsEmulator } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-functions.js";
 
 // Your Firebase configuration
 const firebaseConfig = {
@@ -20,6 +21,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const storage = getStorage(app);
 const auth = getAuth(app);
+const functions = getFunctions(app, 'us-central1');
 const googleProvider = new GoogleAuthProvider();
 
 // Connect to emulators when running locally
@@ -27,6 +29,7 @@ const isLocalhost = window.location.hostname === 'localhost' || window.location.
 if (isLocalhost) {
     console.log('🔧 Running locally - connecting to Firebase emulators');
     connectFirestoreEmulator(db, '127.0.0.1', 8080);
+    connectFunctionsEmulator(functions, '127.0.0.1', 5001);
     window.FUNCTIONS_EMULATOR_URL = 'http://127.0.0.1:5001/bandcal-89c81/us-central1';
 } else {
     window.FUNCTIONS_EMULATOR_URL = null;
@@ -48,6 +51,8 @@ window.serverTimestamp = serverTimestamp;
 window.storageRef = storageRef;
 window.uploadBytes = uploadBytes;
 window.getDownloadURL = getDownloadURL;
+window.functions = functions;
+window.httpsCallable = httpsCallable;
 
 // Current user state
 window.currentUser = null;
@@ -76,10 +81,30 @@ function isMobile() {
     return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 }
 
+// Check if running inside Capacitor native shell
+function isCapacitorNative() {
+    return window.Capacitor && window.Capacitor.isNativePlatform();
+}
+
 // Google Sign In
 window.signInWithGoogle = async function() {
     try {
-        if (isMobile()) {
+        if (isCapacitorNative()) {
+            // Use native Google Sign-In via Capacitor Firebase Auth plugin
+            // skipNativeAuth is true, so the plugin only does native Google sign-in
+            // and returns a credential we pass to the Firebase JS SDK
+            const FirebaseAuthentication = window.Capacitor.Plugins.FirebaseAuthentication;
+            const nativeResult = await FirebaseAuthentication.signInWithGoogle();
+            const idToken = nativeResult.credential?.idToken;
+            if (!idToken) {
+                throw new Error('No ID token returned from native Google Sign-In');
+            }
+            const credential = GoogleAuthProvider.credential(idToken);
+            const result = await signInWithCredential(auth, credential);
+            window.currentUser = result.user;
+            console.log("Signed in via native:", result.user.email);
+            return result.user;
+        } else if (isMobile()) {
             // Save pending actions to localStorage before redirect
             if (window.pendingBandJoin) {
                 localStorage.setItem('pendingBandJoin', window.pendingBandJoin);
@@ -90,8 +115,8 @@ window.signInWithGoogle = async function() {
             if (window.pendingBandInviteId) {
                 localStorage.setItem('pendingBandInviteId', window.pendingBandInviteId);
             }
-            
-            // Use redirect on mobile (popups don't work well)
+
+            // Use redirect on mobile browser (popups don't work well)
             await signInWithRedirect(auth, googleProvider);
             return null; // Will return after redirect
         } else {
@@ -122,6 +147,10 @@ getRedirectResult(auth).then((result) => {
 // Sign Out
 window.signOutUser = async function() {
     try {
+        if (isCapacitorNative()) {
+            const FirebaseAuthentication = window.Capacitor.Plugins.FirebaseAuthentication;
+            await FirebaseAuthentication.signOut();
+        }
         await signOut(auth);
         window.currentUser = null;
         showHomeScreen();
@@ -761,21 +790,48 @@ function setSelectedInstruments(gridId, instruments, otherInputId) {
     }
 }
 
+// Show/hide the SMS consent checkbox block based on whether a phone number is entered.
+// Called from the `oninput` handler of the phone fields in index.html.
+// prefix is 'profile' or 'editProfile' (matches element id prefixes).
+window.SMS_CONSENT_DISCLOSURE_TEXT = 'I agree to receive SMS from Tempo about rehearsals, gigs, RSVPs, and band group messages. Msg & data rates may apply. Msg frequency varies. Reply STOP to opt out, HELP for help. See SMS Terms and Privacy Policy. Mobile information and opt-in consent will not be shared with third parties or affiliates for marketing or promotional purposes.';
+window.SMS_CONSENT_DISCLOSURE_VERSION = '2026-04-16';
+
+function updateSmsConsentVisibility(prefix) {
+    const phoneField = document.getElementById(prefix + 'Phone');
+    const block = document.getElementById(prefix + 'SmsConsentBlock');
+    if (!phoneField || !block) return;
+    const hasPhone = phoneField.value.trim().length > 0;
+    block.style.display = hasPhone ? 'block' : 'none';
+    if (!hasPhone) {
+        const cb = document.getElementById(prefix + 'SmsConsent');
+        if (cb) cb.checked = false;
+    }
+}
+window.updateSmsConsentVisibility = updateSmsConsentVisibility;
+
 // Save new profile
 async function saveProfile() {
     const name = document.getElementById('profileName').value.trim();
     const location = document.getElementById('profileLocation').value.trim();
     const bio = document.getElementById('profileBio').value.trim();
+    const phoneRaw = document.getElementById('profilePhone')?.value.trim() || '';
+    const phone = phoneRaw ? normalizePhoneNumber(phoneRaw) : null;
+    const smsConsentChecked = document.getElementById('profileSmsConsent')?.checked || false;
     const instruments = getSelectedInstruments('instrumentGrid', 'profileOtherInstrument');
     const discoverable = document.getElementById('profileDiscoverable').checked;
-    
+
     if (!name) {
         alert('Please enter your name');
         return;
     }
-    
+
     if (instruments.length === 0) {
         alert('Please select at least one instrument');
+        return;
+    }
+
+    if (phone && !smsConsentChecked) {
+        alert('Please check the SMS consent box to save your phone number, or remove the phone number to continue.');
         return;
     }
     
@@ -803,6 +859,7 @@ async function saveProfile() {
         const profileData = {
             name,
             email: user.email,
+            phone,
             location,
             bio,
             instruments,
@@ -812,6 +869,15 @@ async function saveProfile() {
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp()
         };
+
+        if (phone && smsConsentChecked) {
+            profileData.smsConsent = {
+                consentedAt: serverTimestamp(),
+                disclosureText: window.SMS_CONSENT_DISCLOSURE_TEXT,
+                disclosureVersion: window.SMS_CONSENT_DISCLOSURE_VERSION,
+                source: 'in-app-profile-create'
+            };
+        }
 
         await setDoc(doc(db, "users", user.uid), profileData);
 
@@ -943,6 +1009,19 @@ async function showEditProfile() {
         // Load new fields
         document.getElementById('editProfileInfluences').value = profile.influences || '';
         document.getElementById('editProfileWorkingOn').value = profile.workingOn || '';
+
+        // Load phone number
+        const phoneField = document.getElementById('editProfilePhone');
+        if (phoneField) {
+            phoneField.value = profile.phone ? formatPhoneDisplay(profile.phone) : '';
+        }
+
+        // If the user already has a phone on file with a recorded consent, pre-check the
+        // consent box and show the consent block so they see the disclosure.
+        const hasExistingConsent = !!(profile.phone && profile.smsConsent && profile.smsConsent.consentedAt);
+        const editConsentCb = document.getElementById('editProfileSmsConsent');
+        if (editConsentCb) editConsentCb.checked = hasExistingConsent;
+        updateSmsConsentVisibility('editProfile');
 
         // Load social links
         const links = profile.socialLinks || {};
@@ -1089,14 +1168,24 @@ async function updateProfile() {
         soundcloud: document.getElementById('editProfileSoundCloud')?.value.trim() || '',
         linktree: document.getElementById('editProfileLinktree')?.value.trim() || ''
     };
-    
+
+    // Phone number
+    const phoneRaw = document.getElementById('editProfilePhone')?.value.trim() || '';
+    const phone = phoneRaw ? normalizePhoneNumber(phoneRaw) : null;
+    const smsConsentChecked = document.getElementById('editProfileSmsConsent')?.checked || false;
+
     if (!name) {
         alert('Please enter your name');
         return;
     }
-    
+
     if (instruments.length === 0) {
         alert('Please select at least one instrument');
+        return;
+    }
+
+    if (phone && !smsConsentChecked) {
+        alert('Please check the SMS consent box to save your phone number, or remove the phone number to continue.');
         return;
     }
     
@@ -1137,6 +1226,7 @@ async function updateProfile() {
         const profileData = {
             name,
             email: user.email,
+            phone,
             location,
             bio,
             instruments,
@@ -1153,6 +1243,26 @@ async function updateProfile() {
         // Add createdAt if this is a new profile
         if (!window.currentUserProfile) {
             profileData.createdAt = serverTimestamp();
+        }
+
+        // SMS consent: only (re)record if the user has a phone + checked the box.
+        // Preserve an existing consent record if they checked the box and already had one for this number;
+        // otherwise, write a fresh one. If the phone was removed, consent is moot — drop it.
+        if (phone && smsConsentChecked) {
+            const existing = window.currentUserProfile?.smsConsent;
+            const phoneUnchanged = window.currentUserProfile?.phone === phone;
+            if (existing && phoneUnchanged) {
+                profileData.smsConsent = existing;
+            } else {
+                profileData.smsConsent = {
+                    consentedAt: serverTimestamp(),
+                    disclosureText: window.SMS_CONSENT_DISCLOSURE_TEXT,
+                    disclosureVersion: window.SMS_CONSENT_DISCLOSURE_VERSION,
+                    source: 'in-app-profile-edit'
+                };
+            }
+        } else if (!phone) {
+            profileData.smsConsent = null;
         }
 
         // Use setDoc with merge to create or update
@@ -2093,15 +2203,28 @@ async function loadMyBands() {
             return;
         }
         
-        container.innerHTML = bands.map(band => `
-            <div class="band-card" onclick="showBandDetail('${band.id}')">
-                <div class="band-card-name">${escapeHtml(band.name)}</div>
-                <div class="band-card-info">
-                    ${band.role === 'leader' ? 'Leader' : band.role === 'admin' ? 'Admin' : 'Member'}
-                    ${band.memberCount ? ` • ${band.memberCount} members` : ''}
+        container.innerHTML = bands.map(band => {
+            const photoStyle = band.photoURL
+                ? `background-image: url('${band.photoURL}')`
+                : '';
+            const photoPlaceholder = band.photoURL ? '' : `
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/>
+                    <circle cx="19" cy="7" r="3"/><path d="M19 21v-1a3 3 0 00-3-3h-1"/>
+                </svg>`;
+            return `
+                <div class="band-card" onclick="showBandDetail('${band.id}')">
+                    <div class="band-card-photo" style="${photoStyle}">${photoPlaceholder}</div>
+                    <div class="band-card-content">
+                        <div class="band-card-name">${escapeHtml(band.name)}</div>
+                        <div class="band-card-info">
+                            ${band.role === 'leader' ? 'Leader' : band.role === 'admin' ? 'Admin' : 'Member'}
+                            ${band.memberCount ? ` • ${band.memberCount} members` : ''}
+                        </div>
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
         
     } catch (error) {
         console.error("Error loading bands:", error);
@@ -2116,46 +2239,56 @@ async function loadMyBands() {
 
 // Show Create Band screen
 function showCreateBand() {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById('screenCreateBand').classList.add('active');
-    
-    // Hide tab bar during creation flow
-    hideTabBar();
-    
+    // Show modal
+    document.getElementById('createBandModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
+
     // Reset form
     document.getElementById('newBandName').value = '';
     document.getElementById('newBandBio').value = '';
     window.pendingBandPhoto = null;
-    
+
     // Reset photo preview
     const photoPreview = document.getElementById('bandPhotoPreview');
     photoPreview.style.backgroundImage = '';
     photoPreview.classList.remove('has-photo');
     photoPreview.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="19" cy="7" r="3"/><path d="M19 21v-1a3 3 0 00-3-3h-1"/></svg>';
-    
+
     // Reset leader toggle
     document.querySelector('input[name="leaderType"][value="self"]').checked = true;
     document.getElementById('inviteLeaderFields').style.display = 'none';
     document.getElementById('inviteLeaderName').value = '';
     document.getElementById('inviteLeaderEmail').value = '';
-    
+    const leaderPhoneField = document.getElementById('inviteLeaderPhone');
+    if (leaderPhoneField) leaderPhoneField.value = '';
+
     // Reset member inputs to default 3 rows
     document.getElementById('bandMemberInputs').innerHTML = `
         <div class="member-input-row">
             <input type="text" class="member-name-input" placeholder="Name">
             <input type="email" class="member-email-input" placeholder="Email">
+            <input type="tel" class="member-phone-input" placeholder="Phone">
         </div>
         <div class="member-input-row">
             <input type="text" class="member-name-input" placeholder="Name">
             <input type="email" class="member-email-input" placeholder="Email">
+            <input type="tel" class="member-phone-input" placeholder="Phone">
         </div>
         <div class="member-input-row">
             <input type="text" class="member-name-input" placeholder="Name">
             <input type="email" class="member-email-input" placeholder="Email">
+            <input type="tel" class="member-phone-input" placeholder="Phone">
         </div>
     `;
 }
 window.showCreateBand = showCreateBand;
+
+// Close Create Band modal
+function closeCreateBandModal() {
+    document.getElementById('createBandModal').classList.remove('active');
+    document.body.style.overflow = '';
+}
+window.closeCreateBandModal = closeCreateBandModal;
 
 // Toggle leader input fields
 function toggleLeaderInput() {
@@ -2214,6 +2347,7 @@ function addMemberInputRow() {
     row.innerHTML = `
         <input type="text" class="member-name-input" placeholder="Name">
         <input type="email" class="member-email-input" placeholder="Email">
+        <input type="tel" class="member-phone-input" placeholder="Phone">
     `;
     container.appendChild(row);
 }
@@ -2223,16 +2357,27 @@ window.addMemberInputRow = addMemberInputRow;
 function collectMembersFromInputs() {
     const members = [];
     const rows = document.querySelectorAll('#bandMemberInputs .member-input-row');
-    
+
     rows.forEach(row => {
         const name = row.querySelector('.member-name-input').value.trim();
         const email = row.querySelector('.member-email-input').value.trim().toLowerCase();
-        
-        if (name && email && email.includes('@')) {
-            members.push({ name, email });
+        const phoneInput = row.querySelector('.member-phone-input');
+        const phoneRaw = phoneInput ? phoneInput.value.trim() : '';
+        const phone = phoneRaw ? normalizePhoneNumber(phoneRaw) : null;
+
+        const hasValidEmail = email && email.includes('@');
+        const hasValidPhone = phone && phone.startsWith('+1') && phone.length === 12;
+
+        // Allow members with name + (email or phone or both)
+        if (name && (hasValidEmail || hasValidPhone)) {
+            members.push({
+                name,
+                email: hasValidEmail ? email : null,
+                phone: hasValidPhone ? phone : null
+            });
         }
     });
-    
+
     return members;
 }
 
@@ -2350,20 +2495,28 @@ async function saveBand() {
                 bandId: bandRef.id,
                 bandName: name,
                 name: member.name,
-                email: member.email,
+                email: member.email || null,
+                phone: member.phone || null,
                 status: 'pending',
                 userId: null,
                 invitedAt: serverTimestamp(),
                 invitedBy: window.currentUser.uid
             });
-            
-            // Send invite email
-            await sendBandInviteEmail(member.email, member.name, name, bandRef.id);
         }
-        
+
         console.log("Band created:", bandRef.id);
-        showBandDetail(bandRef.id);
-        
+        closeCreateBandModal();
+
+        // Open unified invite modal if there are members to invite
+        if (members.length > 0) {
+            // Pre-select all members for invite
+            window.inviteState = window.inviteState || {};
+            window.inviteState.preSelectedMembers = members;
+            openUnifiedInviteModal('band', bandRef.id, { id: bandRef.id, name: name });
+        } else {
+            showBandDetail(bandRef.id);
+        }
+
     } catch (error) {
         console.error("Error creating band:", error);
         alert("Error creating band: " + error.message);
@@ -2727,40 +2880,76 @@ async function loadBandMembers(bandId, canManage, band) {
         const membersSnap = await getDocs(membersQuery);
         
         let html = '';
-        
-        // Show leader (or pending leader)
-        if (band.leaderStatus === 'pending') {
-            html += `
-                <div class="member-item">
-                    <div class="member-info">
-                        <div class="member-name">${escapeHtml(band.leaderName || 'Leader')}</div>
-                        <div class="member-email">${escapeHtml(band.leaderEmail || '')}</div>
-                    </div>
-                    <span class="member-status pending">Pending Leader</span>
-                </div>
-            `;
-        } else {
-            html += `
-                <div class="member-item">
-                    <div class="member-info">
-                        <div class="member-name">${escapeHtml(band.leaderName || 'Leader')}</div>
-                        <div class="member-email">${escapeHtml(band.leaderEmail || '')}</div>
-                    </div>
-                    <span class="member-status accepted">Leader</span>
-                </div>
-            `;
+
+        // Get leader's phone - first check band document, then user profile
+        let leaderPhone = band.leaderPhone || null;
+        if (!leaderPhone && band.leaderId) {
+            try {
+                const leaderDoc = await getDoc(doc(db, "users", band.leaderId));
+                if (leaderDoc.exists()) {
+                    leaderPhone = leaderDoc.data().phone || null;
+                }
+            } catch (e) {
+                console.log("Could not fetch leader profile");
+            }
         }
+
+        const leaderHasEmail = band.leaderEmail && band.leaderEmail.includes('@');
+        const leaderHasPhone = leaderPhone && leaderPhone.length >= 10;
+
+        // Build leader channel badges
+        let leaderBadges = '';
+        if (leaderHasEmail) leaderBadges += '<span class="channel-badge email">Email</span>';
+        if (leaderHasPhone) leaderBadges += '<span class="channel-badge sms">SMS</span>';
+
+        // Add phone button for leader - any member can add it (stores on band document)
+        const leaderAddPhoneBtn = (!leaderHasPhone && window.currentUser && band.leaderId)
+            ? `<button class="text-blast-add-phone-btn" onclick="event.stopPropagation(); openLeaderEditPhone('${bandId}', '${escapeHtml(band.leaderName || 'Leader').replace(/'/g, "\\'")}')">+ Add phone</button>`
+            : '';
+
+        // Show leader (or pending leader)
+        const leaderStatus = band.leaderStatus === 'pending' ? 'Pending Leader' : 'Leader';
+        const leaderStatusClass = band.leaderStatus === 'pending' ? 'pending' : 'accepted';
+
+        html += `
+            <div class="member-item">
+                <div class="member-info">
+                    <div class="member-name">${escapeHtml(band.leaderName || 'Leader')}</div>
+                    <div class="member-contact-row">
+                        ${leaderBadges}
+                        ${leaderAddPhoneBtn}
+                    </div>
+                </div>
+                <span class="member-status ${leaderStatusClass}">${leaderStatus}</span>
+            </div>
+        `;
         
         membersSnap.forEach(docSnap => {
             const member = docSnap.data();
+            const hasEmail = member.email && member.email.includes('@');
+            const hasPhone = member.phone && member.phone.length >= 10;
+
+            // Build channel badges
+            let channelBadges = '';
+            if (hasEmail) channelBadges += '<span class="channel-badge email">Email</span>';
+            if (hasPhone) channelBadges += '<span class="channel-badge sms">SMS</span>';
+
+            // Add phone button if no phone - any authenticated member can add phone for text blasts
+            const addPhoneBtn = (!hasPhone && window.currentUser)
+                ? `<button class="text-blast-add-phone-btn" onclick="event.stopPropagation(); openBandDetailEditPhone('${docSnap.id}', '${escapeHtml(member.name).replace(/'/g, "\\'")}', '${escapeHtml(member.phone || '').replace(/'/g, "\\'")}')">+ Add phone</button>`
+                : '';
+
             html += `
                 <div class="member-item">
                     <div class="member-info">
                         <div class="member-name">${escapeHtml(member.name)}</div>
-                        <div class="member-email">${escapeHtml(member.email)}</div>
+                        <div class="member-contact-row">
+                            ${channelBadges}
+                            ${addPhoneBtn}
+                        </div>
                     </div>
                     <span class="member-status ${member.status}">${member.status === 'accepted' ? 'Joined' : 'Pending'}</span>
-                    ${canManage ? `<button class="member-remove" onclick="removeBandMember('${docSnap.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>` : ''}
+                    ${canManage ? `<button class="member-remove" onclick="event.stopPropagation(); removeBandMember('${docSnap.id}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>` : ''}
                 </div>
             `;
         });
@@ -6478,6 +6667,14 @@ async function showRehearsalDetail(rehearsalId) {
             setlistEl.style.display = 'none';
         }
 
+        // Show Send Invites section for organizer
+        const smsSection = document.getElementById('rehearsalSmsSection');
+        if (smsSection && window.currentUser && rehearsal.creatorId === window.currentUser.uid) {
+            smsSection.style.display = 'block';
+        } else if (smsSection) {
+            smsSection.style.display = 'none';
+        }
+
     } catch (error) {
         console.error("Error loading rehearsal:", error);
         // Show sign-in prompt for unauthenticated users
@@ -7028,20 +7225,9 @@ function showCreatePost() {
     window.pendingLinkUrl = null;
     window.pendingLinkPreview = null;
 
-    // Show screen
-    document.querySelectorAll('.screen').forEach(s => {
-        s.classList.remove('active');
-        s.style.display = '';
-    });
-    const screen = document.getElementById('screenCreatePost');
-    if (screen) {
-        screen.classList.add('active');
-        screen.style.display = 'block';
-    }
-
-    // Hide tab bar
-    document.body.classList.add('hide-tab-bar');
-    hideGlobalHeader();
+    // Show modal
+    document.getElementById('createPostModal').classList.add('active');
+    document.body.style.overflow = 'hidden';
 
     // Focus input
     setTimeout(() => {
@@ -7050,9 +7236,10 @@ function showCreatePost() {
 }
 window.showCreatePost = showCreatePost;
 
-// Hide create post screen
+// Hide create post modal
 function hideCreatePost() {
-    showFeedHome();
+    document.getElementById('createPostModal').classList.remove('active');
+    document.body.style.overflow = '';
 }
 window.hideCreatePost = hideCreatePost;
 
@@ -7259,13 +7446,13 @@ async function submitPost() {
 
         await addDoc(collection(db, "posts"), postData);
 
-        // Clear state and go back to feed
+        // Clear state and close modal
         window.pendingPostImage = null;
         window.pendingPostImageUrl = null;
         window.pendingLinkUrl = null;
         window.pendingLinkPreview = null;
 
-        showFeedHome();
+        hideCreatePost();
 
     } catch (error) {
         console.error("Error creating post:", error);
@@ -7557,3 +7744,2315 @@ async function deleteComment(postId, commentId) {
     }
 }
 window.deleteComment = deleteComment;
+
+// ============================================
+// UNIFIED EVENT CREATION (Partiful-style)
+// ============================================
+
+window.currentEventType = 'show';
+window.currentEventCover = null;
+window.currentEventSetlist = [];
+window.currentEventFiles = [];
+
+// Show unified create event modal
+async function showCreateEvent(initialType = 'show') {
+    if (!window.currentUser) {
+        const user = await window.signInWithGoogle();
+        if (!user) return;
+    }
+
+    // Show modal
+    document.getElementById('createEventModal').classList.add('active');
+    document.body.style.overflow = 'hidden'; // Prevent background scroll
+
+    // Reset form state
+    window.currentEventType = initialType;
+    window.currentEventCover = null;
+    window.currentEventSetlist = [];
+    window.currentEventFiles = [];
+
+    // Reset form fields
+    document.getElementById('eventTitle').value = '';
+    document.getElementById('eventDate').value = '';
+    document.getElementById('eventTime').value = '';
+    document.getElementById('eventLocation').value = '';
+    document.getElementById('eventNotes').value = '';
+    document.getElementById('eventDoors').value = '';
+    document.getElementById('eventSetTime').value = '';
+    document.getElementById('eventLoadIn').value = '';
+    document.getElementById('eventSetLength').value = '';
+    document.getElementById('eventTicketLink').value = '';
+    document.getElementById('eventEndTime').value = '';
+    document.getElementById('eventRecurring').checked = false;
+    document.getElementById('eventRecurringOptions').style.display = 'none';
+    document.getElementById('eventPlaylistUrl').value = '';
+    document.getElementById('eventSetlistItems').innerHTML = '';
+    document.getElementById('eventUploadedFiles').innerHTML = '';
+
+    // Reset cover image
+    document.getElementById('eventCoverPreview').style.display = 'none';
+    document.getElementById('eventCoverUpload').style.display = 'flex';
+
+    // Set initial event type
+    setEventType(initialType);
+
+    // Load user's bands
+    await loadEventBandDropdown();
+}
+window.showCreateEvent = showCreateEvent;
+
+// Set event type (show or rehearsal)
+function setEventType(type) {
+    window.currentEventType = type;
+
+    // Update toggle buttons
+    document.getElementById('eventTypeShow').classList.toggle('active', type === 'show');
+    document.getElementById('eventTypeRehearsal').classList.toggle('active', type === 'rehearsal');
+
+    // Show/hide type-specific sections
+    document.getElementById('showDetailsSection').style.display = type === 'show' ? 'block' : 'none';
+    document.getElementById('rehearsalOptionsSection').style.display = type === 'rehearsal' ? 'block' : 'none';
+
+    // Update create button text
+    document.getElementById('createEventBtnText').textContent = type === 'show' ? 'Create Show' : 'Create Rehearsal';
+}
+window.setEventType = setEventType;
+
+// Load bands dropdown
+async function loadEventBandDropdown() {
+    const select = document.getElementById('eventBandSelect');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">Select a band (optional)</option>';
+
+    try {
+        // Query bands where user is a member
+        const memberQuery = query(
+            collection(db, "bandMembers"),
+            where("memberId", "==", window.currentUser.uid)
+        );
+        const memberSnap = await getDocs(memberQuery);
+
+        const bandIds = [];
+        memberSnap.forEach(doc => {
+            bandIds.push(doc.data().bandId);
+        });
+
+        // Also get bands where user is leader
+        const leaderQuery = query(
+            collection(db, "bands"),
+            where("leaderId", "==", window.currentUser.uid)
+        );
+        const leaderSnap = await getDocs(leaderQuery);
+
+        leaderSnap.forEach(doc => {
+            if (!bandIds.includes(doc.id)) {
+                bandIds.push(doc.id);
+            }
+        });
+
+        // Fetch band details
+        for (const bandId of bandIds) {
+            const bandDoc = await getDoc(doc(db, "bands", bandId));
+            if (bandDoc.exists()) {
+                const band = bandDoc.data();
+                select.innerHTML += `<option value="${bandId}">${band.name}</option>`;
+            }
+        }
+    } catch (error) {
+        console.error("Error loading bands:", error);
+    }
+}
+
+// Handle band selection
+function onEventBandSelected() {
+    const bandId = document.getElementById('eventBandSelect').value;
+    const checkCalendarsSection = document.getElementById('eventCheckCalendarsSection');
+    if (checkCalendarsSection) {
+        checkCalendarsSection.style.display = bandId ? 'block' : 'none';
+    }
+}
+window.onEventBandSelected = onEventBandSelected;
+
+// Cover image handling
+function handleEventCoverSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById('eventCoverImg').src = e.target.result;
+        document.getElementById('eventCoverPreview').style.display = 'block';
+        document.getElementById('eventCoverUpload').style.display = 'none';
+        window.currentEventCover = { file: file, dataUrl: e.target.result };
+    };
+    reader.readAsDataURL(file);
+}
+window.handleEventCoverSelect = handleEventCoverSelect;
+
+function removeEventCover() {
+    window.currentEventCover = null;
+    document.getElementById('eventCoverPreview').style.display = 'none';
+    document.getElementById('eventCoverUpload').style.display = 'flex';
+    document.getElementById('eventCoverInput').value = '';
+}
+window.removeEventCover = removeEventCover;
+
+// Default cover images (emoji-based for now)
+function setDefaultCover(type) {
+    const gradients = {
+        'stage': 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f1a 100%)',
+        'crowd': 'linear-gradient(135deg, #2d1b3d 0%, #1a1a2e 50%, #0f0f1a 100%)',
+        'lights': 'linear-gradient(135deg, #1e3a5f 0%, #1a1a2e 50%, #0f0f1a 100%)',
+        'drums': 'linear-gradient(135deg, #3d1b1b 0%, #1a1a2e 50%, #0f0f1a 100%)'
+    };
+
+    const coverArea = document.getElementById('eventCoverArea');
+    coverArea.style.background = gradients[type] || gradients['stage'];
+    coverArea.style.border = 'none';
+    document.getElementById('eventCoverUpload').style.display = 'none';
+
+    window.currentEventCover = { type: 'gradient', gradient: type };
+}
+window.setDefaultCover = setDefaultCover;
+
+// Toggle recurring options
+function toggleEventRecurring() {
+    const isRecurring = document.getElementById('eventRecurring').checked;
+    document.getElementById('eventRecurringOptions').style.display = isRecurring ? 'block' : 'none';
+}
+window.toggleEventRecurring = toggleEventRecurring;
+
+// Setlist management
+function addEventSong() {
+    const titleInput = document.getElementById('eventNewSongTitle');
+    const durationInput = document.getElementById('eventNewSongDuration');
+    const title = titleInput.value.trim();
+    const duration = durationInput.value.trim();
+
+    if (!title) return;
+
+    window.currentEventSetlist.push({ title, duration: duration || '' });
+    renderEventSetlist();
+
+    titleInput.value = '';
+    durationInput.value = '';
+}
+window.addEventSong = addEventSong;
+
+function renderEventSetlist() {
+    const container = document.getElementById('eventSetlistItems');
+    container.innerHTML = window.currentEventSetlist.map((song, i) => `
+        <div class="setlist-item">
+            <span class="setlist-number">${i + 1}</span>
+            <span class="setlist-title">${song.title}</span>
+            <span class="setlist-duration">${song.duration || '--'}</span>
+            <button class="setlist-remove" onclick="removeEventSong(${i})">×</button>
+        </div>
+    `).join('');
+}
+
+function removeEventSong(index) {
+    window.currentEventSetlist.splice(index, 1);
+    renderEventSetlist();
+}
+window.removeEventSong = removeEventSong;
+
+// File upload handling
+async function handleEventFileSelect(event) {
+    const files = event.target.files;
+    if (!files.length) return;
+
+    const container = document.getElementById('eventUploadedFiles');
+
+    for (const file of files) {
+        const fileId = Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+        // Add to UI
+        const fileEl = document.createElement('div');
+        fileEl.className = 'uploaded-file';
+        fileEl.id = `event-file-${fileId}`;
+        fileEl.innerHTML = `
+            <span class="file-name">${file.name}</span>
+            <span class="file-status uploading">Uploading...</span>
+        `;
+        container.appendChild(fileEl);
+
+        try {
+            // Upload to Firebase Storage
+            const storageRef = ref(storage, `events/${Date.now()}_${file.name}`);
+            await uploadBytes(storageRef, file);
+            const url = await getDownloadURL(storageRef);
+
+            // Update status
+            fileEl.querySelector('.file-status').className = 'file-status uploaded';
+            fileEl.querySelector('.file-status').textContent = 'Uploaded';
+            fileEl.innerHTML += `<button class="file-remove" onclick="removeEventFile('${fileId}')">×</button>`;
+
+            window.currentEventFiles.push({
+                id: fileId,
+                name: file.name,
+                type: file.type,
+                url: url,
+                storagePath: storageRef.fullPath
+            });
+        } catch (error) {
+            console.error('Error uploading file:', error);
+            fileEl.querySelector('.file-status').className = 'file-status error';
+            fileEl.querySelector('.file-status').textContent = 'Failed';
+        }
+    }
+
+    event.target.value = '';
+}
+window.handleEventFileSelect = handleEventFileSelect;
+
+function removeEventFile(fileId) {
+    window.currentEventFiles = window.currentEventFiles.filter(f => f.id !== fileId);
+    const el = document.getElementById(`event-file-${fileId}`);
+    if (el) el.remove();
+}
+window.removeEventFile = removeEventFile;
+
+// Cancel create event
+function closeCreateEventModal() {
+    document.getElementById('createEventModal').classList.remove('active');
+    document.body.style.overflow = ''; // Restore scroll
+}
+window.closeCreateEventModal = closeCreateEventModal;
+
+function cancelCreateEvent() {
+    closeCreateEventModal();
+}
+window.cancelCreateEvent = cancelCreateEvent;
+
+// Create event (unified for both shows and rehearsals)
+async function createEvent() {
+    const title = document.getElementById('eventTitle').value.trim();
+    const date = document.getElementById('eventDate').value;
+    const time = document.getElementById('eventTime').value;
+    const location = document.getElementById('eventLocation').value.trim();
+    const notes = document.getElementById('eventNotes').value.trim();
+    const bandId = document.getElementById('eventBandSelect').value;
+    const playlistUrl = document.getElementById('eventPlaylistUrl').value.trim();
+
+    // Validation
+    if (!title) {
+        alert('Please enter a title');
+        return;
+    }
+    if (!date) {
+        alert('Please select a date');
+        return;
+    }
+
+    const btn = document.getElementById('createEventBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Creating...';
+
+    try {
+        // Get band info if selected
+        let bandName = null;
+        let invitedMembers = [];
+
+        if (bandId) {
+            const bandDoc = await getDoc(doc(db, "bands", bandId));
+            if (bandDoc.exists()) {
+                bandName = bandDoc.data().name;
+            }
+
+            // Get band members
+            const membersQuery = query(
+                collection(db, "bandMembers"),
+                where("bandId", "==", bandId)
+            );
+            const membersSnap = await getDocs(membersQuery);
+            membersSnap.forEach(doc => {
+                invitedMembers.push({
+                    odId: doc.data().memberId,
+                    email: doc.data().email,
+                    status: 'pending'
+                });
+            });
+        }
+
+        // Upload cover image if present
+        let coverImage = null;
+        if (window.currentEventCover) {
+            if (window.currentEventCover.file) {
+                const storageRef = ref(storage, `events/${Date.now()}_cover_${window.currentEventCover.file.name}`);
+                await uploadBytes(storageRef, window.currentEventCover.file);
+                const url = await getDownloadURL(storageRef);
+                coverImage = { url, storagePath: storageRef.fullPath };
+            } else if (window.currentEventCover.gradient) {
+                coverImage = { type: 'gradient', gradient: window.currentEventCover.gradient };
+            }
+        }
+
+        if (window.currentEventType === 'show') {
+            // Create gig document
+            const gigData = {
+                bandName: bandName || title,
+                venue: location || '',
+                showDate: date,
+                loadIn: document.getElementById('eventLoadIn').value || '',
+                setTime: document.getElementById('eventSetTime').value || time || '',
+                setLength: document.getElementById('eventSetLength').value || '',
+                doors: document.getElementById('eventDoors').value || '',
+                ticketLink: document.getElementById('eventTicketLink').value || '',
+                notes: notes || '',
+                coverImage: coverImage,
+                setlist: window.currentEventSetlist,
+                streamingLink: playlistUrl,
+                files: window.currentEventFiles.map(f => ({ name: f.name, type: f.type, url: f.url })),
+                suggestedTimes: [],
+                createdAt: serverTimestamp(),
+                creatorId: window.currentUser.uid,
+                creatorEmail: window.currentUser.email,
+                creatorName: window.currentUser.displayName,
+                bandId: bandId || null,
+                responderIds: [],
+                expectedResponders: invitedMembers.length,
+                invites: []
+            };
+
+            const docRef = await addDoc(collection(db, "gigs"), gigData);
+
+            // Notify band members
+            if (bandId) {
+                await notifyBandMembersOfGig(bandId, docRef.id, gigData);
+            }
+
+            alert('Show created!');
+        } else {
+            // Create rehearsal document
+            const isRecurring = document.getElementById('eventRecurring').checked;
+
+            const rehearsalData = {
+                name: title,
+                date,
+                startTime: time || '',
+                endTime: document.getElementById('eventEndTime').value || null,
+                location: location || null,
+                notes: notes || null,
+                bandId: bandId || null,
+                bandName: bandName || null,
+                linkedGigId: null,
+                creatorId: window.currentUser.uid,
+                creatorEmail: window.currentUser.email,
+                invitedMembers,
+                coverImage: coverImage,
+                setlist: window.currentEventSetlist,
+                playlist: playlistUrl ? [playlistUrl] : [],
+                files: window.currentEventFiles.map(f => ({ name: f.name, type: f.type, url: f.url })),
+                isRecurring,
+                parentRehearsalId: null,
+                createdAt: serverTimestamp(),
+                invites: []
+            };
+
+            const docRef = await addDoc(collection(db, "rehearsals"), rehearsalData);
+
+            // Handle recurring
+            if (isRecurring) {
+                const frequency = document.getElementById('eventFrequency').value;
+                const endDateStr = document.getElementById('eventRecurringEnd').value;
+                if (endDateStr) {
+                    await createEventRecurringRehearsals(docRef.id, rehearsalData, frequency, endDateStr);
+                }
+            }
+
+            // Send notifications
+            await sendRehearsalInviteEmails(docRef.id, rehearsalData);
+
+            alert('Rehearsal created!');
+        }
+
+        closeCreateEventModal();
+
+    } catch (error) {
+        console.error("Error creating event:", error);
+        alert('Error creating event: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<span id="createEventBtnText">${window.currentEventType === 'show' ? 'Create Show' : 'Create Rehearsal'}</span>`;
+    }
+}
+window.createEvent = createEvent;
+
+// Create recurring rehearsals from unified form
+async function createEventRecurringRehearsals(parentId, baseData, frequency, endDateStr) {
+    const startDate = new Date(baseData.date + 'T00:00:00');
+    const endDate = new Date(endDateStr + 'T00:00:00');
+    const dayIncrement = frequency === 'weekly' ? 7 : frequency === 'biweekly' ? 14 : 30;
+
+    let currentDate = new Date(startDate);
+    currentDate.setDate(currentDate.getDate() + dayIncrement);
+
+    while (currentDate <= endDate) {
+        const recurringData = {
+            ...baseData,
+            date: currentDate.toISOString().split('T')[0],
+            parentRehearsalId: parentId,
+            isRecurring: false,
+            createdAt: serverTimestamp()
+        };
+
+        recurringData.invitedMembers = recurringData.invitedMembers.map(m => ({
+            ...m,
+            status: 'pending'
+        }));
+
+        await addDoc(collection(db, "rehearsals"), recurringData);
+
+        currentDate.setDate(currentDate.getDate() + dayIncrement);
+    }
+}
+
+// Update create sheet to use new unified screen
+function showCreateEventFromSheet(type) {
+    closeCreateSheet();
+    showCreateEvent(type);
+}
+window.showCreateEventFromSheet = showCreateEventFromSheet;
+
+// ============================================
+// UNIFIED INVITE SYSTEM (SMS + Email)
+// ============================================
+
+window.inviteState = {
+    eventType: null,      // 'band', 'gig', 'rehearsal'
+    eventId: null,
+    eventData: null,
+    selectedRecipients: [],  // [{name, email, phone, tempoUserId}]
+    defaultSmsMessage: '',
+    defaultEmailSubject: '',
+    defaultEmailBody: '',
+    preSelectedMembers: null  // For band creation flow
+};
+
+// Open unified invite modal
+async function openUnifiedInviteModal(eventType, eventId = null, eventData = null) {
+    if (!window.currentUser) {
+        alert('Please sign in to send invites');
+        return;
+    }
+
+    // Store context
+    window.inviteState.eventType = eventType;
+    window.inviteState.eventId = eventId;
+    window.inviteState.eventData = eventData;
+    window.inviteState.selectedRecipients = [];
+
+    const modal = document.getElementById('unifiedInviteModal');
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+
+    // Set modal title based on event type
+    const titles = {
+        band: eventData?.name || 'Band',
+        gig: eventData?.bandName || eventData?.venue || 'Gig',
+        rehearsal: eventData?.name || 'Rehearsal'
+    };
+    document.getElementById('inviteModalEventName').textContent = titles[eventType] || 'Event';
+
+    // Generate default messages
+    generateDefaultInviteMessages(eventType, eventData);
+
+    // For bands, hide "Band" tab, show only Contacts/Manual
+    const bandTab = document.querySelector('[data-tab="band"]');
+    if (eventType === 'band') {
+        bandTab.style.display = 'none';
+        switchInviteTab('contacts');
+    } else {
+        bandTab.style.display = '';
+        await loadInviteBandMembers(eventData?.bandId);
+        switchInviteTab('band');
+    }
+
+    // Load contacts
+    await loadInviteContacts();
+
+    // Pre-select members if coming from band creation
+    if (window.inviteState.preSelectedMembers && window.inviteState.preSelectedMembers.length > 0) {
+        window.inviteState.selectedRecipients = [...window.inviteState.preSelectedMembers];
+        window.inviteState.preSelectedMembers = null;
+    }
+
+    renderInviteSelectedRecipients();
+    updateInviteDeliveryPreview();
+}
+window.openUnifiedInviteModal = openUnifiedInviteModal;
+
+// Open invite modal for current rehearsal
+function openRehearsalInviteModal() {
+    const rehearsal = window.currentRehearsalData;
+    if (!rehearsal) {
+        alert('No rehearsal data available');
+        return;
+    }
+    openUnifiedInviteModal('rehearsal', rehearsal.id, {
+        id: rehearsal.id,
+        name: rehearsal.name,
+        date: rehearsal.date,
+        startTime: rehearsal.startTime,
+        location: rehearsal.location,
+        bandId: rehearsal.bandId,
+        bandName: rehearsal.bandName
+    });
+}
+window.openRehearsalInviteModal = openRehearsalInviteModal;
+
+// Open invite modal for current gig
+function openGigInviteModal() {
+    const gigId = window.currentGigId;
+    const gig = window.currentGig;
+    if (!gigId || !gig) {
+        alert('No gig data available');
+        return;
+    }
+    openUnifiedInviteModal('gig', gigId, {
+        id: gigId,
+        bandName: gig.bandName,
+        venue: gig.venue,
+        showDate: gig.showDate,
+        setTime: gig.setTime,
+        bandId: gig.bandId
+    });
+}
+window.openGigInviteModal = openGigInviteModal;
+
+// Close unified invite modal
+function closeUnifiedInviteModal() {
+    document.getElementById('unifiedInviteModal').classList.remove('active');
+    document.body.style.overflow = '';
+    window.inviteState.selectedRecipients = [];
+    window.inviteState.preSelectedMembers = null;
+
+    // If closing after band creation, show the band detail
+    if (window.inviteState.eventType === 'band' && window.inviteState.eventId) {
+        showBandDetail(window.inviteState.eventId);
+    }
+}
+window.closeUnifiedInviteModal = closeUnifiedInviteModal;
+
+// Generate default invite messages based on event type
+function generateDefaultInviteMessages(eventType, eventData) {
+    let smsMsg = '';
+    let emailSubject = '';
+    let emailBody = '';
+    const baseUrl = window.location.origin;
+
+    if (eventType === 'band') {
+        const bandName = eventData?.name || 'the band';
+        smsMsg = `You're invited to join ${bandName} on Tempo! Join here: ${baseUrl}?joinBand=${eventData?.id || ''}`;
+        emailSubject = `You're invited to join ${bandName} on Tempo`;
+        emailBody = `Hey!\n\nYou've been invited to join ${bandName} on Tempo - the easiest way to coordinate gigs and rehearsals.\n\nClick the link to join the band and start collaborating.`;
+    } else if (eventType === 'gig') {
+        const dateStr = eventData?.showDate ? formatDateForDisplay(eventData.showDate) : 'TBD';
+        const bandName = eventData?.bandName || 'a gig';
+        const venue = eventData?.venue || 'TBD';
+        smsMsg = `${bandName} at ${venue} on ${dateStr}. Reply YES, NO, or MAYBE to RSVP.`;
+        emailSubject = `New Gig: ${bandName} at ${venue}`;
+        emailBody = `A new gig has been scheduled!\n\nVenue: ${venue}\nDate: ${dateStr}${eventData?.setTime ? '\nSet Time: ' + eventData.setTime : ''}\n\nClick the link to view details and confirm your availability.`;
+    } else if (eventType === 'rehearsal') {
+        const dateStr = eventData?.date ? formatDateForDisplay(eventData.date) : 'TBD';
+        const timeStr = eventData?.startTime ? formatTimeForDisplay(eventData.startTime) : '';
+        const name = eventData?.name || 'Band rehearsal';
+        smsMsg = `Rehearsal: ${name} on ${dateStr}${timeStr ? ' at ' + timeStr : ''}${eventData?.location ? ' @ ' + eventData.location : ''}. Reply YES, NO, or MAYBE.`;
+        emailSubject = `Rehearsal Invite: ${name}`;
+        emailBody = `You're invited to a rehearsal!\n\n${name}${eventData?.bandName ? '\nBand: ' + eventData.bandName : ''}\nDate: ${dateStr}${timeStr ? ' at ' + timeStr : ''}${eventData?.location ? '\nLocation: ' + eventData.location : ''}`;
+    }
+
+    window.inviteState.defaultSmsMessage = smsMsg;
+    window.inviteState.defaultEmailSubject = emailSubject;
+    window.inviteState.defaultEmailBody = emailBody;
+
+    document.getElementById('inviteSmsBody').value = smsMsg;
+    document.getElementById('inviteEmailSubject').value = emailSubject;
+    document.getElementById('inviteEmailBody').value = emailBody;
+    updateInviteSmsCharCount();
+}
+
+// Format date for display
+function formatDateForDisplay(dateStr) {
+    if (!dateStr) return 'TBD';
+    const date = new Date(dateStr + 'T00:00:00');
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+// Format time for display
+function formatTimeForDisplay(timeStr) {
+    if (!timeStr) return '';
+    const [hours, minutes] = timeStr.split(':');
+    const h = parseInt(hours);
+    const ampm = h >= 12 ? 'pm' : 'am';
+    const h12 = h % 12 || 12;
+    return `${h12}:${minutes}${ampm}`;
+}
+
+// Switch invite tab
+function switchInviteTab(tab) {
+    document.querySelectorAll('.invite-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.invite-tab-content').forEach(c => c.classList.remove('active'));
+
+    document.querySelector(`.invite-tab[data-tab="${tab}"]`)?.classList.add('active');
+    document.getElementById(`inviteTab${tab.charAt(0).toUpperCase() + tab.slice(1)}`)?.classList.add('active');
+}
+window.switchInviteTab = switchInviteTab;
+
+// Load band members for invite modal
+async function loadInviteBandMembers(bandId) {
+    const container = document.getElementById('inviteBandMembersList');
+    if (!bandId) {
+        container.innerHTML = '<div class="invite-empty-state">No band selected</div>';
+        return;
+    }
+
+    container.innerHTML = '<div class="loading-spinner"></div>';
+
+    try {
+        const membersQuery = query(
+            collection(db, "bandMembers"),
+            where("bandId", "==", bandId),
+            where("status", "==", "accepted")
+        );
+        const membersSnap = await getDocs(membersQuery);
+
+        const members = [];
+        for (const memberDoc of membersSnap.docs) {
+            const member = memberDoc.data();
+            // Try to get phone from user profile if they have a userId
+            let phone = member.phone || null;
+            if (member.userId && !phone) {
+                const userDoc = await getDoc(doc(db, "users", member.userId));
+                if (userDoc.exists()) {
+                    phone = userDoc.data().phone || null;
+                }
+            }
+            members.push({
+                name: member.name,
+                email: member.email || null,
+                phone: phone,
+                tempoUserId: member.userId || null
+            });
+        }
+
+        if (members.length === 0) {
+            container.innerHTML = '<div class="invite-empty-state">No band members found</div>';
+            return;
+        }
+
+        container.innerHTML = members.map(m => renderInviteRecipientItem(m)).join('');
+    } catch (error) {
+        console.error("Error loading band members:", error);
+        container.innerHTML = '<div class="invite-empty-state">Error loading members</div>';
+    }
+}
+
+// Load user's contacts for invite modal
+async function loadInviteContacts() {
+    const container = document.getElementById('inviteContactsList');
+    container.innerHTML = '<div class="loading-spinner"></div>';
+
+    try {
+        const contactsRef = collection(db, `users/${window.currentUser.uid}/contacts`);
+        const contactsSnap = await getDocs(contactsRef);
+
+        window.userContacts = [];
+        contactsSnap.forEach(doc => {
+            window.userContacts.push({ id: doc.id, ...doc.data() });
+        });
+
+        if (window.userContacts.length === 0) {
+            container.innerHTML = '<div class="invite-empty-state">No contacts yet. Add some in the "Add New" tab.</div>';
+            return;
+        }
+
+        renderInviteContactsList();
+    } catch (error) {
+        console.error("Error loading contacts:", error);
+        container.innerHTML = '<div class="invite-empty-state">Error loading contacts</div>';
+    }
+}
+
+// Render contacts list (with optional filtering)
+function renderInviteContactsList() {
+    const container = document.getElementById('inviteContactsList');
+    const searchTerm = (document.getElementById('inviteContactsSearch')?.value || '').toLowerCase();
+
+    const filtered = window.userContacts.filter(c =>
+        c.name?.toLowerCase().includes(searchTerm) ||
+        c.phone?.includes(searchTerm) ||
+        c.email?.toLowerCase().includes(searchTerm)
+    );
+
+    if (filtered.length === 0) {
+        container.innerHTML = '<div class="invite-empty-state">No matching contacts</div>';
+        return;
+    }
+
+    container.innerHTML = filtered.map(c => renderInviteRecipientItem({
+        name: c.name,
+        email: c.email || null,
+        phone: c.phone || null,
+        tempoUserId: c.tempoUserId || null
+    })).join('');
+}
+
+// Filter contacts on search input
+function filterInviteContacts() {
+    renderInviteContactsList();
+}
+window.filterInviteContacts = filterInviteContacts;
+
+// Render a single recipient item
+function renderInviteRecipientItem(recipient) {
+    const hasEmail = !!recipient.email;
+    const hasPhone = !!recipient.phone;
+    const isSelected = window.inviteState.selectedRecipients.some(r =>
+        (r.email && r.email === recipient.email) || (r.phone && r.phone === recipient.phone)
+    );
+
+    const emailBadge = hasEmail ? '<span class="channel-badge email">Email</span>' : '';
+    const smsBadge = hasPhone ? '<span class="channel-badge sms">SMS</span>' : '';
+    const noBadge = (!hasEmail && !hasPhone) ? '<span class="channel-badge none">No contact info</span>' : '';
+
+    return `
+        <div class="invite-recipient-item ${isSelected ? 'selected' : ''} ${!hasEmail && !hasPhone ? 'disabled' : ''}"
+             onclick="toggleInviteRecipient('${escapeHtml(recipient.name)}', '${recipient.email || ''}', '${recipient.phone || ''}', '${recipient.tempoUserId || ''}')">
+            <div class="invite-recipient-check">
+                ${isSelected ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+            </div>
+            <div class="invite-recipient-info">
+                <div class="invite-recipient-name">${escapeHtml(recipient.name)}</div>
+                <div class="invite-recipient-channels">${emailBadge}${smsBadge}${noBadge}</div>
+            </div>
+        </div>
+    `;
+}
+
+// Toggle recipient selection
+function toggleInviteRecipient(name, email, phone, tempoUserId) {
+    if (!email && !phone) return; // Can't select without contact info
+
+    const existing = window.inviteState.selectedRecipients.findIndex(r =>
+        (email && r.email === email) || (phone && r.phone === phone)
+    );
+
+    if (existing >= 0) {
+        window.inviteState.selectedRecipients.splice(existing, 1);
+    } else {
+        window.inviteState.selectedRecipients.push({
+            name,
+            email: email || null,
+            phone: phone || null,
+            tempoUserId: tempoUserId || null
+        });
+    }
+
+    // Re-render all lists to update check marks
+    const bandContainer = document.getElementById('inviteBandMembersList');
+    if (bandContainer && !bandContainer.querySelector('.invite-empty-state')) {
+        // Refresh band list
+        if (window.inviteState.eventData?.bandId) {
+            loadInviteBandMembers(window.inviteState.eventData.bandId);
+        }
+    }
+    renderInviteContactsList();
+    renderInviteSelectedRecipients();
+    updateInviteDeliveryPreview();
+}
+window.toggleInviteRecipient = toggleInviteRecipient;
+
+// Render selected recipients
+function renderInviteSelectedRecipients() {
+    const container = document.getElementById('inviteSelectedList');
+    const count = document.getElementById('inviteSelectedCount');
+    const recipients = window.inviteState.selectedRecipients;
+
+    count.textContent = recipients.length;
+
+    if (recipients.length === 0) {
+        container.innerHTML = '<div class="invite-selected-empty">No recipients selected</div>';
+        return;
+    }
+
+    container.innerHTML = recipients.map(r => `
+        <div class="invite-selected-chip">
+            <span>${escapeHtml(r.name)}</span>
+            <button class="chip-remove" onclick="removeInviteRecipient('${r.email || ''}', '${r.phone || ''}')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+    `).join('');
+}
+
+// Remove a recipient
+function removeInviteRecipient(email, phone) {
+    const idx = window.inviteState.selectedRecipients.findIndex(r =>
+        (email && r.email === email) || (phone && r.phone === phone)
+    );
+    if (idx >= 0) {
+        window.inviteState.selectedRecipients.splice(idx, 1);
+        renderInviteSelectedRecipients();
+        updateInviteDeliveryPreview();
+        // Refresh lists
+        renderInviteContactsList();
+    }
+}
+window.removeInviteRecipient = removeInviteRecipient;
+
+// Clear all recipients
+function clearAllInviteRecipients() {
+    window.inviteState.selectedRecipients = [];
+    renderInviteSelectedRecipients();
+    updateInviteDeliveryPreview();
+    renderInviteContactsList();
+}
+window.clearAllInviteRecipients = clearAllInviteRecipients;
+
+// Add manual recipient
+function addManualInviteRecipient() {
+    const name = document.getElementById('inviteManualName').value.trim();
+    const email = document.getElementById('inviteManualEmail').value.trim().toLowerCase();
+    const phoneRaw = document.getElementById('inviteManualPhone').value.trim();
+    const phone = phoneRaw ? normalizePhoneNumber(phoneRaw) : null;
+
+    if (!name) {
+        alert('Please enter a name');
+        return;
+    }
+    if (!email && !phone) {
+        alert('Please enter an email or phone number');
+        return;
+    }
+
+    const hasValidEmail = email && email.includes('@');
+    const hasValidPhone = phone && phone.startsWith('+1') && phone.length === 12;
+
+    if (!hasValidEmail && !hasValidPhone) {
+        alert('Please enter a valid email or phone number');
+        return;
+    }
+
+    // Check for duplicate
+    const isDuplicate = window.inviteState.selectedRecipients.some(r =>
+        (hasValidEmail && r.email === email) || (hasValidPhone && r.phone === phone)
+    );
+
+    if (isDuplicate) {
+        alert('This recipient is already added');
+        return;
+    }
+
+    window.inviteState.selectedRecipients.push({
+        name,
+        email: hasValidEmail ? email : null,
+        phone: hasValidPhone ? phone : null,
+        tempoUserId: null
+    });
+
+    // Clear inputs
+    document.getElementById('inviteManualName').value = '';
+    document.getElementById('inviteManualEmail').value = '';
+    document.getElementById('inviteManualPhone').value = '';
+
+    renderInviteSelectedRecipients();
+    updateInviteDeliveryPreview();
+}
+window.addManualInviteRecipient = addManualInviteRecipient;
+
+// Update delivery preview
+function updateInviteDeliveryPreview() {
+    const sendViaSms = document.getElementById('sendViaSms').checked;
+    const sendViaEmail = document.getElementById('sendViaEmail').checked;
+    const recipients = window.inviteState.selectedRecipients;
+
+    const smsEligible = recipients.filter(r => r.phone).length;
+    const emailEligible = recipients.filter(r => r.email).length;
+
+    document.getElementById('smsEligibleCount').textContent = `(${smsEligible} eligible)`;
+    document.getElementById('emailEligibleCount').textContent = `(${emailEligible} eligible)`;
+
+    // Show/hide message sections
+    document.getElementById('smsMessageSection').style.display = sendViaSms ? 'block' : 'none';
+    document.getElementById('emailMessageSection').style.display = sendViaEmail ? 'block' : 'none';
+
+    // Update preview
+    renderInvitePreview(sendViaSms, sendViaEmail, smsEligible, emailEligible);
+}
+window.updateInviteDeliveryPreview = updateInviteDeliveryPreview;
+
+// Render preview
+function renderInvitePreview(sendViaSms, sendViaEmail, smsEligible, emailEligible) {
+    const preview = document.getElementById('invitePreview');
+    let html = '';
+
+    if (sendViaSms && smsEligible > 0) {
+        const smsBody = document.getElementById('inviteSmsBody').value;
+        html += `
+            <div class="invite-preview-card sms">
+                <div class="preview-header"><span class="preview-icon">💬</span> SMS to ${smsEligible} recipient${smsEligible > 1 ? 's' : ''}</div>
+                <div class="preview-body">${escapeHtml(smsBody.substring(0, 100))}${smsBody.length > 100 ? '...' : ''}</div>
+            </div>
+        `;
+    }
+
+    if (sendViaEmail && emailEligible > 0) {
+        const emailSubject = document.getElementById('inviteEmailSubject').value;
+        html += `
+            <div class="invite-preview-card email">
+                <div class="preview-header"><span class="preview-icon">📧</span> Email to ${emailEligible} recipient${emailEligible > 1 ? 's' : ''}</div>
+                <div class="preview-subject">Subject: ${escapeHtml(emailSubject)}</div>
+            </div>
+        `;
+    }
+
+    if (!html) {
+        html = '<div class="invite-preview-empty">Select recipients and delivery methods to see preview</div>';
+    }
+
+    preview.innerHTML = html;
+}
+
+// Update SMS character count
+function updateInviteSmsCharCount() {
+    const textarea = document.getElementById('inviteSmsBody');
+    const count = document.getElementById('inviteSmsCharCount');
+    count.textContent = textarea.value.length;
+}
+window.updateInviteSmsCharCount = updateInviteSmsCharCount;
+
+// Reset to default messages
+function resetToDefaultSmsMessage() {
+    document.getElementById('inviteSmsBody').value = window.inviteState.defaultSmsMessage;
+    updateInviteSmsCharCount();
+}
+window.resetToDefaultSmsMessage = resetToDefaultSmsMessage;
+
+function resetToDefaultEmailMessage() {
+    document.getElementById('inviteEmailSubject').value = window.inviteState.defaultEmailSubject;
+    document.getElementById('inviteEmailBody').value = window.inviteState.defaultEmailBody;
+}
+window.resetToDefaultEmailMessage = resetToDefaultEmailMessage;
+
+// Send unified invites
+async function sendUnifiedInvites() {
+    const recipients = window.inviteState.selectedRecipients;
+    if (recipients.length === 0) {
+        alert('Please select at least one recipient');
+        return;
+    }
+
+    const sendViaSms = document.getElementById('sendViaSms').checked;
+    const sendViaEmail = document.getElementById('sendViaEmail').checked;
+
+    if (!sendViaSms && !sendViaEmail) {
+        alert('Please select at least one delivery method');
+        return;
+    }
+
+    const btn = document.getElementById('sendInvitesBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+
+    try {
+        const results = { smsSent: 0, emailSent: 0 };
+
+        // Send SMS invites
+        if (sendViaSms) {
+            const smsRecipients = recipients.filter(r => r.phone);
+            if (smsRecipients.length > 0) {
+                const smsMessage = document.getElementById('inviteSmsBody').value;
+                const smsResult = await sendBulkSmsForInvites(smsRecipients, smsMessage);
+                results.smsSent = smsResult.sent || 0;
+            }
+        }
+
+        // Send email invites
+        if (sendViaEmail) {
+            const emailRecipients = recipients.filter(r => r.email);
+            if (emailRecipients.length > 0) {
+                const emailSubject = document.getElementById('inviteEmailSubject').value;
+                const emailBody = document.getElementById('inviteEmailBody').value;
+                const emailResult = await sendBulkEmailForInvites(emailRecipients, emailSubject, emailBody);
+                results.emailSent = emailResult.sent || 0;
+            }
+        }
+
+        // Show success message
+        const parts = [];
+        if (results.smsSent > 0) parts.push(`${results.smsSent} SMS`);
+        if (results.emailSent > 0) parts.push(`${results.emailSent} email`);
+        alert(`Sent ${parts.join(' and ')} invite${parts.length > 1 || (results.smsSent + results.emailSent) > 1 ? 's' : ''}!`);
+
+        closeUnifiedInviteModal();
+
+    } catch (error) {
+        console.error('Error sending invites:', error);
+        alert('Failed to send some invites: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send Invites';
+    }
+}
+window.sendUnifiedInvites = sendUnifiedInvites;
+
+// Send bulk SMS for invites
+async function sendBulkSmsForInvites(recipients, message) {
+    // Build recipients list - assume first contact for safety (includes opt-out message)
+    const recipientsWithStatus = recipients.map(r => ({
+        phone: r.phone,
+        name: r.name,
+        isFirstContact: true // Always include opt-out info for compliance
+    }));
+
+    // Get auth token
+    const idToken = await window.currentUser.getIdToken();
+
+    // Call HTTP endpoint directly
+    const response = await fetch('https://us-central1-bandcal-89c81.cloudfunctions.net/sendBulkSMS', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+            recipients: recipientsWithStatus,
+            messageTemplate: message,
+            referenceType: window.inviteState.eventType,
+            referenceId: window.inviteState.eventId,
+            messageType: 'invite'
+        })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+        throw new Error(result.error || 'Failed to send SMS');
+    }
+
+    return result;
+}
+
+// Send bulk email for invites
+async function sendBulkEmailForInvites(recipients, subject, bodyText) {
+    let sent = 0;
+    const eventType = window.inviteState.eventType;
+    const eventId = window.inviteState.eventId;
+
+    // Generate invite URL based on event type
+    let inviteUrl = window.location.origin;
+    if (eventType === 'band') {
+        inviteUrl += `?joinBand=${eventId}`;
+    } else if (eventType === 'gig') {
+        inviteUrl += `/e/${eventId}`;
+    } else if (eventType === 'rehearsal') {
+        inviteUrl += `/r/${eventId}`;
+    }
+
+    for (const r of recipients) {
+        try {
+            await addDoc(collection(db, "mail"), {
+                to: r.email,
+                message: {
+                    subject: subject,
+                    html: generateInviteEmailHtml(r.name, bodyText, inviteUrl, eventType)
+                }
+            });
+            sent++;
+        } catch (error) {
+            console.error(`Failed to queue email for ${r.email}:`, error);
+        }
+    }
+
+    return { sent };
+}
+
+// Generate email HTML with link previews
+function generateInviteEmailHtml(recipientName, bodyText, inviteUrl, eventType) {
+    const buttonLabels = {
+        band: 'Join Band',
+        gig: 'View Gig Details',
+        rehearsal: 'View Rehearsal & RSVP'
+    };
+
+    // Detect URLs in the body text and convert to styled links
+    const urlRegex = /(https?:\/\/[^\s]+)/gi;
+    let bodyHtml = escapeHtml(bodyText);
+    const urls = bodyText.match(urlRegex) || [];
+
+    urls.forEach(url => {
+        const escapedUrl = escapeHtml(url);
+        const displayUrl = url.length > 50 ? url.substring(0, 50) + '...' : url;
+        const linkHtml = `<a href="${escapedUrl}" style="color: #4CAF50; text-decoration: underline;">${escapeHtml(displayUrl)}</a>`;
+        bodyHtml = bodyHtml.replace(escapedUrl, linkHtml);
+    });
+
+    return `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #333;">Hey ${escapeHtml(recipientName)}!</h2>
+            <p style="color: #555; font-size: 16px; line-height: 1.6; white-space: pre-line;">${bodyHtml}</p>
+            <p style="margin: 30px 0;">
+                <a href="${inviteUrl}" style="background: #4CAF50; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 500; display: inline-block;">
+                    ${buttonLabels[eventType] || 'View Details'}
+                </a>
+            </p>
+            <p style="color: #888; font-size: 14px;">Sent via Tempo</p>
+        </div>
+    `;
+}
+
+// ============================================
+// BAND TEXT BLAST
+// ============================================
+
+window.textBlastState = {
+    bandId: null,
+    bandName: null,
+    members: [],
+    selectedMembers: []
+};
+
+// Open text blast modal
+async function openBandTextBlast(bandId, bandName) {
+    if (!window.currentUser) {
+        alert('Please sign in to send messages');
+        return;
+    }
+
+    window.textBlastState.bandId = bandId;
+    window.textBlastState.bandName = bandName || 'Band';
+    window.textBlastState.members = [];
+    window.textBlastState.selectedMembers = [];
+
+    document.getElementById('textBlastBandName').textContent = window.textBlastState.bandName;
+    document.getElementById('textBlastMessage').value = '';
+    updateTextBlastCharCount();
+
+    // Update signature preview
+    const senderName = window.currentUserProfile?.name || window.currentUser?.displayName || 'You';
+    document.getElementById('textBlastSenderName').textContent = senderName;
+    document.getElementById('textBlastBandNamePreview').textContent = window.textBlastState.bandName;
+
+    const modal = document.getElementById('textBlastModal');
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+
+    await loadTextBlastMembers(bandId);
+}
+window.openBandTextBlast = openBandTextBlast;
+
+// Close text blast modal
+function closeTextBlastModal() {
+    document.getElementById('textBlastModal').classList.remove('active');
+    document.body.style.overflow = '';
+}
+window.closeTextBlastModal = closeTextBlastModal;
+
+// Load band members for text blast
+async function loadTextBlastMembers(bandId) {
+    const container = document.getElementById('textBlastRecipientsList');
+    container.innerHTML = '<div class="loading-spinner"></div>';
+
+    try {
+        // Get band members
+        const membersQuery = query(
+            collection(db, "bandMembers"),
+            where("bandId", "==", bandId),
+            where("status", "==", "accepted")
+        );
+        const membersSnap = await getDocs(membersQuery);
+
+        const members = [];
+        for (const memberDoc of membersSnap.docs) {
+            const member = memberDoc.data();
+            let phone = member.phone || null;
+            let email = member.email || null;
+
+            // Try to get contact info from user profile
+            if (member.userId) {
+                const userDoc = await getDoc(doc(db, "users", member.userId));
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    phone = phone || userData.phone || null;
+                    email = email || userData.email || null;
+                }
+            }
+
+            members.push({
+                id: memberDoc.id,
+                name: member.name,
+                email: email,
+                phone: phone,
+                userId: member.userId
+            });
+        }
+
+        // Also get band leader if not in members
+        const bandDoc = await getDoc(doc(db, "bands", bandId));
+        if (bandDoc.exists()) {
+            const bandData = bandDoc.data();
+            const leaderInMembers = members.some(m => m.userId === bandData.leaderId);
+            if (!leaderInMembers && bandData.leaderId) {
+                // Get leader's phone - first check band document, then user profile
+                let leaderPhone = bandData.leaderPhone || null;
+                let leaderEmail = bandData.leaderEmail;
+                let leaderName = bandData.leaderName;
+
+                const leaderDoc = await getDoc(doc(db, "users", bandData.leaderId));
+                if (leaderDoc.exists()) {
+                    const leaderData = leaderDoc.data();
+                    leaderPhone = leaderPhone || leaderData.phone || null;
+                    leaderEmail = leaderEmail || leaderData.email;
+                    leaderName = leaderName || leaderData.name || 'Leader';
+                }
+
+                members.unshift({
+                    id: 'leader',
+                    name: leaderName,
+                    email: leaderEmail,
+                    phone: leaderPhone,
+                    userId: bandData.leaderId
+                });
+            }
+        }
+
+        window.textBlastState.members = members;
+        // Select all by default
+        window.textBlastState.selectedMembers = members.map(m => m.id);
+
+        renderTextBlastMembers();
+        updateTextBlastCounts();
+
+    } catch (error) {
+        console.error("Error loading members:", error);
+        container.innerHTML = '<div class="invite-empty-state">Error loading members</div>';
+    }
+}
+
+// Render text blast members
+function renderTextBlastMembers() {
+    const container = document.getElementById('textBlastRecipientsList');
+    const members = window.textBlastState.members;
+
+    if (members.length === 0) {
+        container.innerHTML = '<div class="invite-empty-state">No band members found</div>';
+        return;
+    }
+
+    container.innerHTML = members.map(m => {
+        const isSelected = window.textBlastState.selectedMembers.includes(m.id);
+        const hasEmail = !!m.email;
+        const hasPhone = !!m.phone;
+        const isCurrentUser = m.userId === window.currentUser?.uid;
+
+        // Edit button - show "+ Add phone" when no phone, or edit icon when has phone
+        // Anyone can edit any member's phone (leader's phone stored on band doc)
+        let editBtn = '';
+        if (hasPhone) {
+            editBtn = `<button class="text-blast-edit-btn" onclick="event.stopPropagation(); openTextBlastEditPhone('${m.id}')" title="Edit phone">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+            </button>`;
+        } else {
+            editBtn = `<button class="text-blast-add-phone-btn" onclick="event.stopPropagation(); openTextBlastEditPhone('${m.id}')">
+                + Add phone
+            </button>`;
+        }
+
+        return `
+            <div class="invite-recipient-item ${isSelected ? 'selected' : ''}"
+                 onclick="toggleTextBlastMember('${m.id}')">
+                <div class="invite-recipient-check">
+                    ${isSelected ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                </div>
+                <div class="invite-recipient-info">
+                    <div class="invite-recipient-name">${escapeHtml(m.name)}${isCurrentUser ? ' (you)' : ''}</div>
+                    <div class="invite-recipient-channels">
+                        ${hasEmail ? '<span class="channel-badge email">Email</span>' : ''}
+                        ${hasPhone ? '<span class="channel-badge sms">SMS</span>' : ''}
+                        ${!hasPhone ? '<span class="channel-badge none">No phone</span>' : ''}
+                    </div>
+                </div>
+                ${editBtn}
+            </div>
+        `;
+    }).join('');
+}
+
+// Toggle text blast member selection
+function toggleTextBlastMember(memberId) {
+    const idx = window.textBlastState.selectedMembers.indexOf(memberId);
+    if (idx >= 0) {
+        window.textBlastState.selectedMembers.splice(idx, 1);
+    } else {
+        window.textBlastState.selectedMembers.push(memberId);
+    }
+    renderTextBlastMembers();
+    updateTextBlastCounts();
+}
+window.toggleTextBlastMember = toggleTextBlastMember;
+
+// Select/deselect all
+function selectAllTextBlastRecipients() {
+    window.textBlastState.selectedMembers = window.textBlastState.members.map(m => m.id);
+    renderTextBlastMembers();
+    updateTextBlastCounts();
+}
+window.selectAllTextBlastRecipients = selectAllTextBlastRecipients;
+
+function deselectAllTextBlastRecipients() {
+    window.textBlastState.selectedMembers = [];
+    renderTextBlastMembers();
+    updateTextBlastCounts();
+}
+window.deselectAllTextBlastRecipients = deselectAllTextBlastRecipients;
+
+// Update counts
+function updateTextBlastCounts() {
+    const selected = window.textBlastState.selectedMembers;
+    const members = window.textBlastState.members.filter(m => selected.includes(m.id));
+
+    const smsCount = members.filter(m => m.phone).length;
+    const emailCount = members.filter(m => m.email).length;
+
+    document.getElementById('textBlastMemberCount').textContent = members.length;
+    document.getElementById('blastSmsCount').textContent = `(${smsCount} with phone)`;
+    document.getElementById('blastEmailCount').textContent = `(${emailCount} with email)`;
+}
+
+function updateTextBlastPreview() {
+    updateTextBlastCounts();
+}
+window.updateTextBlastPreview = updateTextBlastPreview;
+
+function updateTextBlastCharCount() {
+    const textarea = document.getElementById('textBlastMessage');
+    document.getElementById('textBlastCharCount').textContent = textarea.value.length;
+}
+window.updateTextBlastCharCount = updateTextBlastCharCount;
+
+// State for phone edit modal
+window.editPhoneState = {
+    memberId: null,
+    memberName: null
+};
+
+// Open phone edit modal for text blast member
+function openTextBlastEditPhone(memberId) {
+    const member = window.textBlastState.members.find(m => m.id === memberId);
+    if (!member) return;
+
+    window.editPhoneState.memberId = memberId;
+    window.editPhoneState.memberName = member.name;
+
+    document.getElementById('editPhoneMemberName').textContent = member.name;
+    document.getElementById('editPhoneInput').value = member.phone ? formatPhoneDisplay(member.phone) : '';
+
+    document.getElementById('editPhoneModal').classList.add('active');
+
+    // Focus input after modal opens
+    setTimeout(() => {
+        document.getElementById('editPhoneInput').focus();
+    }, 100);
+}
+window.openTextBlastEditPhone = openTextBlastEditPhone;
+
+function closeEditPhoneModal() {
+    document.getElementById('editPhoneModal').classList.remove('active');
+    window.editPhoneState = { memberId: null, memberName: null, fromBandDetail: false, isLeader: false };
+}
+window.closeEditPhoneModal = closeEditPhoneModal;
+
+async function saveEditPhone() {
+    const memberId = window.editPhoneState.memberId;
+    const fromBandDetail = window.editPhoneState.fromBandDetail;
+    const isLeader = window.editPhoneState.isLeader;
+    if (!memberId) return;
+
+    const phoneRaw = document.getElementById('editPhoneInput').value.trim();
+    const phone = phoneRaw ? normalizePhoneNumber(phoneRaw) : null;
+
+    const btn = document.getElementById('saveEditPhoneBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    try {
+        if (fromBandDetail) {
+            if (isLeader) {
+                // Leader's phone is stored on band document
+                await updateDoc(doc(db, "bands", memberId), { leaderPhone: phone });
+                // Update local state
+                if (window.currentBandData) {
+                    window.currentBandData.leaderPhone = phone;
+                }
+            } else {
+                // Regular member - update bandMembers directly
+                await updateDoc(doc(db, "bandMembers", memberId), { phone: phone });
+            }
+
+            // Refresh band members display
+            if (window.currentBandId && window.currentBandData) {
+                const userId = window.currentUser?.uid;
+                const isCurrentUserLeader = window.currentBandData.leaderId === userId;
+                const isTempAdmin = window.currentBandData.tempAdminId === userId && window.currentBandData.leaderStatus === 'pending';
+                await loadBandMembers(window.currentBandId, isCurrentUserLeader || isTempAdmin, window.currentBandData);
+            }
+        } else {
+            // Saving from text blast modal
+            await saveTextBlastMemberPhone(memberId, phoneRaw);
+        }
+        closeEditPhoneModal();
+    } catch (error) {
+        console.error("Error saving phone:", error);
+        alert("Error saving phone number");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save';
+    }
+}
+window.saveEditPhone = saveEditPhone;
+
+// Open phone edit from band detail page
+function openBandDetailEditPhone(memberId, memberName, currentPhone) {
+    window.editPhoneState.memberId = memberId;
+    window.editPhoneState.memberName = memberName;
+    window.editPhoneState.fromBandDetail = true;
+
+    document.getElementById('editPhoneMemberName').textContent = memberName;
+    document.getElementById('editPhoneInput').value = currentPhone ? formatPhoneDisplay(currentPhone) : '';
+
+    document.getElementById('editPhoneModal').classList.add('active');
+
+    setTimeout(() => {
+        document.getElementById('editPhoneInput').focus();
+    }, 100);
+}
+window.openBandDetailEditPhone = openBandDetailEditPhone;
+
+// Open phone edit for band leader (phone stored on band document)
+function openLeaderEditPhone(bandId, leaderName) {
+    window.editPhoneState.memberId = bandId; // Store bandId for leader
+    window.editPhoneState.memberName = leaderName;
+    window.editPhoneState.fromBandDetail = true;
+    window.editPhoneState.isLeader = true;
+
+    document.getElementById('editPhoneMemberName').textContent = leaderName;
+    document.getElementById('editPhoneInput').value = '';
+
+    document.getElementById('editPhoneModal').classList.add('active');
+
+    setTimeout(() => {
+        document.getElementById('editPhoneInput').focus();
+    }, 100);
+}
+window.openLeaderEditPhone = openLeaderEditPhone;
+
+// Save phone number for a text blast member
+async function saveTextBlastMemberPhone(memberId, phoneRaw) {
+    const member = window.textBlastState.members.find(m => m.id === memberId);
+    if (!member) return;
+
+    const phone = phoneRaw ? normalizePhoneNumber(phoneRaw) : null;
+
+    try {
+        if (memberId === 'leader') {
+            // Leader's phone is stored on band document
+            await updateDoc(doc(db, "bands", window.textBlastState.bandId), { leaderPhone: phone });
+        } else {
+            // Regular band member - update bandMembers document
+            await updateDoc(doc(db, "bandMembers", memberId), { phone: phone });
+        }
+
+        // Update local state
+        member.phone = phone;
+
+        // Re-render and update counts
+        renderTextBlastMembers();
+        updateTextBlastCounts();
+
+    } catch (error) {
+        console.error("Error saving phone:", error);
+        alert("Error saving phone number: " + error.message);
+    }
+}
+window.saveTextBlastMemberPhone = saveTextBlastMemberPhone;
+
+// Send text blast
+async function sendTextBlast() {
+    const selected = window.textBlastState.selectedMembers;
+    const members = window.textBlastState.members.filter(m => selected.includes(m.id));
+
+    if (members.length === 0) {
+        alert('Please select at least one recipient');
+        return;
+    }
+
+    const message = document.getElementById('textBlastMessage').value.trim();
+    if (!message) {
+        alert('Please enter a message');
+        return;
+    }
+
+    const sendViaSms = document.getElementById('blastViaSms').checked;
+    const sendViaEmail = document.getElementById('blastViaEmail').checked;
+
+    if (!sendViaSms && !sendViaEmail) {
+        alert('Please select at least one delivery method');
+        return;
+    }
+
+    const btn = document.getElementById('sendTextBlastBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+
+    try {
+        const results = { smsSent: 0, emailSent: 0 };
+
+        // Send SMS
+        if (sendViaSms) {
+            const smsRecipients = members.filter(m => m.phone);
+            if (smsRecipients.length > 0) {
+                // Build recipients list - assume first contact for safety (includes opt-out message)
+                const recipientsWithStatus = smsRecipients.map(r => ({
+                    phone: r.phone,
+                    name: r.name,
+                    isFirstContact: true // Always include opt-out info for compliance
+                }));
+
+                // Add sender context to SMS
+                const senderName = window.currentUserProfile?.name || window.currentUser?.displayName || 'A band member';
+                const bandName = window.textBlastState.bandName;
+                const smsMessage = `${message}\n\n— ${senderName} (${bandName})`;
+
+                console.log('DEBUG: About to call sendBulkSMS via HTTP');
+                console.log('DEBUG: recipients:', recipientsWithStatus);
+
+                // Get auth token
+                const idToken = await window.currentUser.getIdToken();
+                console.log('DEBUG: Got ID token');
+
+                // Call HTTP endpoint directly
+                const response = await fetch('https://us-central1-bandcal-89c81.cloudfunctions.net/sendBulkSMS', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`
+                    },
+                    body: JSON.stringify({
+                        recipients: recipientsWithStatus,
+                        messageTemplate: smsMessage,
+                        referenceType: 'band',
+                        referenceId: window.textBlastState.bandId,
+                        messageType: 'blast'
+                    })
+                });
+
+                console.log('DEBUG: Response status:', response.status);
+                const smsResult = await response.json();
+                console.log('DEBUG: smsResult:', smsResult);
+
+                if (!response.ok) {
+                    throw new Error(smsResult.error || 'Failed to send SMS');
+                }
+
+                results.smsSent = smsResult.sent || 0;
+            }
+        }
+
+        // Send email
+        if (sendViaEmail) {
+            const emailRecipients = members.filter(m => m.email);
+            const emailHtml = generateTextBlastEmailHtml(message, window.textBlastState.bandName);
+            for (const r of emailRecipients) {
+                try {
+                    await addDoc(collection(db, "mail"), {
+                        to: r.email,
+                        message: {
+                            subject: `Message from ${window.textBlastState.bandName}`,
+                            html: emailHtml
+                        }
+                    });
+                    results.emailSent++;
+                } catch (error) {
+                    console.error(`Failed to queue email for ${r.email}:`, error);
+                }
+            }
+        }
+
+        // Log the message to band history
+        await addDoc(collection(db, `bands/${window.textBlastState.bandId}/messages`), {
+            sentBy: window.currentUser.uid,
+            sentByName: window.currentUserProfile?.name || window.currentUser.displayName,
+            sentAt: serverTimestamp(),
+            body: message,
+            channels: [sendViaSms ? 'sms' : null, sendViaEmail ? 'email' : null].filter(Boolean),
+            recipientCount: members.length,
+            smsCount: results.smsSent,
+            emailCount: results.emailSent
+        });
+
+        // Show success
+        const parts = [];
+        if (results.smsSent > 0) parts.push(`${results.smsSent} SMS`);
+        if (results.emailSent > 0) parts.push(`${results.emailSent} email`);
+        alert(`Sent ${parts.join(' and ')} message${(results.smsSent + results.emailSent) > 1 ? 's' : ''}!`);
+
+        closeTextBlastModal();
+
+    } catch (error) {
+        console.error('Error sending text blast:', error);
+        alert('Failed to send messages: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send Message';
+    }
+}
+window.sendTextBlast = sendTextBlast;
+
+// Helper to open text blast from band detail page
+function openBandTextBlastFromDetail() {
+    if (!window.currentBandId || !window.currentBandData) {
+        alert('Band data not loaded');
+        return;
+    }
+    openBandTextBlast(window.currentBandId, window.currentBandData.name);
+}
+window.openBandTextBlastFromDetail = openBandTextBlastFromDetail;
+
+// Generate email HTML with link previews for text blasts
+function generateTextBlastEmailHtml(message, bandName) {
+    const senderName = window.currentUserProfile?.name || window.currentUser?.displayName || 'A band member';
+
+    // Detect URLs in the message
+    const urlRegex = /(https?:\/\/[^\s]+)/gi;
+    const urls = message.match(urlRegex) || [];
+
+    // Escape the message but preserve line breaks
+    let messageHtml = escapeHtml(message);
+
+    // Replace URLs with styled buttons
+    urls.forEach(url => {
+        const displayUrl = url.length > 40 ? url.substring(0, 40) + '...' : url;
+        const buttonHtml = `</p>
+            <p style="margin: 20px 0;">
+                <a href="${escapeHtml(url)}" style="background: #4CAF50; color: white; padding: 14px 24px; text-decoration: none; border-radius: 8px; font-weight: 500; display: inline-block;">
+                    Open Link
+                </a>
+                <br>
+                <span style="font-size: 12px; color: #888; margin-top: 8px; display: inline-block;">${escapeHtml(displayUrl)}</span>
+            </p>
+            <p style="color: #555; font-size: 16px; line-height: 1.6; white-space: pre-line;">`;
+        messageHtml = messageHtml.replace(escapeHtml(url), buttonHtml);
+    });
+
+    return `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #333;">Message from ${escapeHtml(bandName)}</h2>
+            <p style="color: #555; font-size: 16px; line-height: 1.6; white-space: pre-line;">${messageHtml}</p>
+            <p style="color: #888; font-size: 14px; margin-top: 30px;">Sent via Tempo by ${escapeHtml(senderName)}</p>
+        </div>
+    `;
+}
+
+// ============================================
+// EDIT BAND MEMBER MODAL
+// ============================================
+
+window.editMemberState = {
+    memberId: null,
+    originalEmail: null,
+    originalPhone: null
+};
+
+function openEditMemberModal(memberId, memberName, email, phone) {
+    window.editMemberState = {
+        memberId: memberId,
+        originalEmail: email || '',
+        originalPhone: phone || ''
+    };
+
+    document.getElementById('editMemberName').textContent = memberName;
+    document.getElementById('editMemberEmail').value = email || '';
+    document.getElementById('editMemberPhone').value = phone ? formatPhoneDisplay(phone) : '';
+
+    document.getElementById('editMemberModal').classList.add('active');
+}
+window.openEditMemberModal = openEditMemberModal;
+
+function closeEditMemberModal() {
+    document.getElementById('editMemberModal').classList.remove('active');
+    window.editMemberState = { memberId: null, originalEmail: null, originalPhone: null };
+}
+window.closeEditMemberModal = closeEditMemberModal;
+
+async function saveEditMember() {
+    const memberId = window.editMemberState.memberId;
+    if (!memberId) return;
+
+    const email = document.getElementById('editMemberEmail').value.trim().toLowerCase();
+    const phoneRaw = document.getElementById('editMemberPhone').value.trim();
+    const phone = phoneRaw ? normalizePhoneNumber(phoneRaw) : null;
+
+    // Validate email if provided
+    if (email && !email.includes('@')) {
+        alert('Please enter a valid email address');
+        return;
+    }
+
+    const btn = document.getElementById('saveEditMemberBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    try {
+        const updateData = {
+            email: email || null
+        };
+
+        if (phone) {
+            updateData.phone = phone;
+        } else {
+            updateData.phone = null;
+        }
+
+        await updateDoc(doc(db, "bandMembers", memberId), updateData);
+
+        closeEditMemberModal();
+
+        // Reload band members
+        const bandDoc = await getDoc(doc(db, "bands", window.currentBandId));
+        const band = bandDoc.data();
+        const userId = window.currentUser?.uid;
+        const isLeader = band.leaderId === userId;
+        const isTempAdmin = band.tempAdminId === userId && band.leaderStatus === 'pending';
+        await loadBandMembers(window.currentBandId, isLeader || isTempAdmin, band);
+
+    } catch (error) {
+        console.error("Error saving member:", error);
+        alert("Error saving: " + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save';
+    }
+}
+window.saveEditMember = saveEditMember;
+
+// ============================================
+// SMS INVITE FUNCTIONS (Legacy - kept for compatibility)
+// ============================================
+
+window.smsSelectedRecipients = [];
+window.smsCurrentEventType = null;
+window.smsCurrentEventId = null;
+window.userContacts = [];
+
+// Open SMS invite modal
+async function openSmsInviteModal(eventType) {
+    if (!window.currentUser) {
+        alert('Please sign in to send invites');
+        return;
+    }
+
+    window.smsCurrentEventType = eventType;
+    window.smsCurrentEventId = eventType === 'rehearsal' ? window.currentRehearsalId : window.currentGigId;
+    window.smsSelectedRecipients = [];
+
+    const modal = document.getElementById('smsInviteModal');
+    modal.classList.add('active');
+
+    // Get event data
+    const eventData = eventType === 'rehearsal' ? window.currentRehearsalData : window.currentGigData;
+    document.getElementById('smsModalEventName').textContent = eventData?.name || eventData?.bandName || 'Event';
+
+    // Load band members if available
+    await loadSmsBandMembers(eventData?.bandId);
+
+    // Load user contacts
+    await loadSmsContacts();
+
+    // Set default message
+    const dateStr = eventData?.date ? new Date(eventData.date + 'T00:00:00').toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
+    }) : '';
+    const timeStr = eventData?.startTime || eventData?.setTime || '';
+    const location = eventData?.location || eventData?.venue || '';
+
+    let defaultMessage = `You're invited to ${eventData?.name || eventData?.bandName}`;
+    if (dateStr) defaultMessage += ` on ${dateStr}`;
+    if (timeStr) defaultMessage += ` at ${timeStr}`;
+    if (location) defaultMessage += ` @ ${location}`;
+    defaultMessage += `. Reply YES, NO, or MAYBE to RSVP.`;
+
+    document.getElementById('smsMessageBody').value = defaultMessage;
+    updateSmsCharCount();
+
+    // Reset to band tab
+    switchSmsRecipientTab('band');
+    renderSmsSelectedRecipients();
+}
+window.openSmsInviteModal = openSmsInviteModal;
+
+// Close SMS invite modal
+function closeSmsInviteModal() {
+    document.getElementById('smsInviteModal').classList.remove('active');
+    window.smsSelectedRecipients = [];
+}
+window.closeSmsInviteModal = closeSmsInviteModal;
+
+// Switch recipient tabs
+function switchSmsRecipientTab(tab) {
+    document.querySelectorAll('.sms-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`.sms-tab[data-tab="${tab}"]`).classList.add('active');
+
+    document.querySelectorAll('.sms-tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById(`smsTab${tab.charAt(0).toUpperCase() + tab.slice(1)}`).classList.add('active');
+}
+window.switchSmsRecipientTab = switchSmsRecipientTab;
+
+// Load band members for SMS
+async function loadSmsBandMembers(bandId) {
+    const container = document.getElementById('smsBandMembersList');
+
+    if (!bandId) {
+        container.innerHTML = '<div class="sms-empty-state">No band selected for this event</div>';
+        return;
+    }
+
+    container.innerHTML = '<div class="sms-empty-state">Loading...</div>';
+
+    try {
+        const membersQuery = query(
+            collection(db, "bandMembers"),
+            where("bandId", "==", bandId)
+        );
+        const membersSnap = await getDocs(membersQuery);
+
+        if (membersSnap.empty) {
+            container.innerHTML = '<div class="sms-empty-state">No band members found</div>';
+            return;
+        }
+
+        let html = '';
+        for (const memberDoc of membersSnap.docs) {
+            const member = memberDoc.data();
+            // Get user profile to check for phone
+            if (member.memberId) {
+                const userDoc = await getDoc(doc(db, "users", member.memberId));
+                const userData = userDoc.exists() ? userDoc.data() : {};
+                const phone = userData.phone || '';
+                const name = member.name || userData.name || 'Unknown';
+
+                if (phone) {
+                    html += `
+                        <div class="sms-recipient-item" onclick="toggleSmsRecipient('${phone}', '${name}', '${member.memberId}')">
+                            <div class="sms-recipient-check"></div>
+                            <div class="sms-recipient-info">
+                                <div class="sms-recipient-name">${name}</div>
+                                <div class="sms-recipient-phone">${formatPhoneDisplay(phone)}</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="sms-recipient-item" style="opacity: 0.5; cursor: not-allowed;">
+                            <div class="sms-recipient-check"></div>
+                            <div class="sms-recipient-info">
+                                <div class="sms-recipient-name">${name}</div>
+                                <div class="sms-recipient-phone">No phone number</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+        }
+
+        container.innerHTML = html || '<div class="sms-empty-state">No members with phone numbers</div>';
+    } catch (error) {
+        console.error('Error loading band members:', error);
+        container.innerHTML = '<div class="sms-empty-state">Error loading members</div>';
+    }
+}
+
+// Load user contacts
+async function loadSmsContacts() {
+    const container = document.getElementById('smsContactsList');
+
+    if (!window.currentUser) {
+        container.innerHTML = '<div class="sms-empty-state">Please sign in</div>';
+        return;
+    }
+
+    try {
+        const contactsSnap = await getDocs(
+            collection(db, `users/${window.currentUser.uid}/contacts`)
+        );
+
+        window.userContacts = contactsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        if (window.userContacts.length === 0) {
+            container.innerHTML = '<div class="sms-empty-state">No contacts yet. <a href="#" onclick="showAddContactsModal()">Add contacts</a></div>';
+            return;
+        }
+
+        renderSmsContactsList();
+    } catch (error) {
+        console.error('Error loading contacts:', error);
+        container.innerHTML = '<div class="sms-empty-state">Error loading contacts</div>';
+    }
+}
+
+// Render contacts list
+function renderSmsContactsList(filter = '') {
+    const container = document.getElementById('smsContactsList');
+    const filtered = window.userContacts.filter(c =>
+        c.name.toLowerCase().includes(filter.toLowerCase()) ||
+        c.phone.includes(filter)
+    );
+
+    if (filtered.length === 0) {
+        container.innerHTML = '<div class="sms-empty-state">No contacts found</div>';
+        return;
+    }
+
+    container.innerHTML = filtered.map(c => `
+        <div class="sms-recipient-item ${window.smsSelectedRecipients.find(r => r.phone === c.phone) ? 'selected' : ''}"
+             onclick="toggleSmsRecipient('${c.phone}', '${c.name}', '${c.tempoUserId || ''}')">
+            <div class="sms-recipient-check"></div>
+            <div class="sms-recipient-info">
+                <div class="sms-recipient-name">${c.name}</div>
+                <div class="sms-recipient-phone">${formatPhoneDisplay(c.phone)}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Filter contacts
+function filterSmsContacts() {
+    const filter = document.getElementById('smsContactsSearch').value;
+    renderSmsContactsList(filter);
+}
+window.filterSmsContacts = filterSmsContacts;
+
+// Toggle recipient selection
+function toggleSmsRecipient(phone, name, tempoUserId) {
+    const index = window.smsSelectedRecipients.findIndex(r => r.phone === phone);
+    if (index >= 0) {
+        window.smsSelectedRecipients.splice(index, 1);
+    } else {
+        window.smsSelectedRecipients.push({ phone, name, tempoUserId: tempoUserId || null });
+    }
+
+    renderSmsSelectedRecipients();
+    updateRecipientItemStates();
+}
+window.toggleSmsRecipient = toggleSmsRecipient;
+
+// Update selected state on recipient items
+function updateRecipientItemStates() {
+    document.querySelectorAll('.sms-recipient-item').forEach(item => {
+        const phone = item.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+        if (phone && window.smsSelectedRecipients.find(r => r.phone === phone)) {
+            item.classList.add('selected');
+        } else {
+            item.classList.remove('selected');
+        }
+    });
+}
+
+// Render selected recipients
+function renderSmsSelectedRecipients() {
+    const count = window.smsSelectedRecipients.length;
+    document.querySelector('.sms-selected-label').textContent = `Selected (${count}):`;
+
+    const container = document.getElementById('smsSelectedList');
+    if (count === 0) {
+        container.innerHTML = '<span style="color: #666;">None selected</span>';
+        return;
+    }
+
+    container.innerHTML = window.smsSelectedRecipients.map(r => `
+        <div class="sms-selected-chip">
+            <span>${r.name}</span>
+            <button onclick="toggleSmsRecipient('${r.phone}', '${r.name}', '${r.tempoUserId || ''}')">&times;</button>
+        </div>
+    `).join('');
+}
+
+// Add manual recipient
+function addManualSmsRecipient() {
+    const name = document.getElementById('smsManualName').value.trim();
+    const phone = document.getElementById('smsManualPhone').value.trim();
+
+    if (!name || !phone) {
+        alert('Please enter both name and phone number');
+        return;
+    }
+
+    const normalizedPhone = normalizePhoneNumber(phone);
+    if (!normalizedPhone) {
+        alert('Please enter a valid US phone number');
+        return;
+    }
+
+    // Check if already added
+    if (window.smsSelectedRecipients.find(r => r.phone === normalizedPhone)) {
+        alert('This number is already added');
+        return;
+    }
+
+    window.smsSelectedRecipients.push({ phone: normalizedPhone, name, tempoUserId: null });
+    renderSmsSelectedRecipients();
+
+    document.getElementById('smsManualName').value = '';
+    document.getElementById('smsManualPhone').value = '';
+}
+window.addManualSmsRecipient = addManualSmsRecipient;
+
+// Update character count
+function updateSmsCharCount() {
+    const body = document.getElementById('smsMessageBody').value;
+    const count = body.length;
+    const countEl = document.getElementById('smsCharCount');
+    countEl.textContent = count;
+    countEl.parentElement.className = 'sms-char-count' + (count > 160 ? ' over' : count > 140 ? ' warning' : '');
+}
+window.updateSmsCharCount = updateSmsCharCount;
+
+// Send SMS invites
+async function sendSmsInvites() {
+    if (window.smsSelectedRecipients.length === 0) {
+        alert('Please select at least one recipient');
+        return;
+    }
+
+    const message = document.getElementById('smsMessageBody').value.trim();
+    if (!message) {
+        alert('Please enter a message');
+        return;
+    }
+
+    const btn = document.getElementById('sendSmsBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+
+    try {
+        // Check which recipients are first-time contacts
+        const recipients = [];
+        for (const r of window.smsSelectedRecipients) {
+            const previousMsgs = await getDocs(
+                query(collection(db, 'smsMessages'),
+                    where('recipientPhone', '==', r.phone),
+                    firestoreLimit(1)
+                )
+            );
+            recipients.push({
+                ...r,
+                isFirstContact: previousMsgs.empty
+            });
+        }
+
+        // Call Cloud Function
+        const sendBulkSMS = httpsCallable(functions, 'sendBulkSMS');
+        const result = await sendBulkSMS({
+            recipients,
+            messageTemplate: message,
+            referenceType: window.smsCurrentEventType,
+            referenceId: window.smsCurrentEventId,
+            messageType: 'invite'
+        });
+
+        // Update event document with invites
+        const collectionName = window.smsCurrentEventType === 'gig' ? 'gigs' : 'rehearsals';
+        const eventRef = doc(db, collectionName, window.smsCurrentEventId);
+        const eventDoc = await getDoc(eventRef);
+        const existingInvites = eventDoc.data().invites || [];
+
+        const newInvites = recipients.map(r => ({
+            phone: r.phone,
+            name: r.name,
+            tempoUserId: r.tempoUserId || null,
+            rsvp: 'pending',
+            invitedAt: new Date().toISOString(),
+            rsvpAt: null
+        }));
+
+        // Merge without duplicates
+        const mergedInvites = [...existingInvites];
+        newInvites.forEach(inv => {
+            if (!mergedInvites.find(e => e.phone === inv.phone)) {
+                mergedInvites.push(inv);
+            }
+        });
+
+        await updateDoc(eventRef, { invites: mergedInvites });
+
+        alert(`Sent ${result.data.sent} invite${result.data.sent !== 1 ? 's' : ''}`);
+        closeSmsInviteModal();
+
+        // Refresh the detail view
+        if (window.smsCurrentEventType === 'rehearsal') {
+            showRehearsalDetail(window.smsCurrentEventId);
+        }
+
+    } catch (error) {
+        console.error('Error sending SMS:', error);
+        alert('Failed to send invites: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send Invites';
+    }
+}
+window.sendSmsInvites = sendSmsInvites;
+
+// Normalize phone number to E.164
+function normalizePhoneNumber(phone) {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length === 10) {
+        return '+1' + digits;
+    } else if (digits.length === 11 && digits.startsWith('1')) {
+        return '+' + digits;
+    }
+    return null;
+}
+
+// Format phone for display
+function formatPhoneDisplay(phone) {
+    if (!phone) return '';
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length === 11 && digits.startsWith('1')) {
+        return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+    } else if (digits.length === 10) {
+        return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    }
+    return phone;
+}
+
+// Format phone input as user types: (XXX) XXX-XXXX
+function formatPhoneInput(input) {
+    // Get just the digits
+    let digits = input.value.replace(/\D/g, '');
+
+    // Limit to 10 digits (or 11 if starts with 1)
+    if (digits.length > 11) {
+        digits = digits.slice(0, 11);
+    }
+    if (digits.length > 10 && !digits.startsWith('1')) {
+        digits = digits.slice(0, 10);
+    }
+
+    // Remove leading 1 for formatting
+    let formatDigits = digits;
+    if (digits.startsWith('1') && digits.length > 1) {
+        formatDigits = digits.slice(1);
+    }
+
+    // Format as (XXX) XXX-XXXX
+    let formatted = '';
+    if (formatDigits.length > 0) {
+        formatted = '(' + formatDigits.slice(0, 3);
+    }
+    if (formatDigits.length >= 3) {
+        formatted += ') ' + formatDigits.slice(3, 6);
+    }
+    if (formatDigits.length >= 6) {
+        formatted += '-' + formatDigits.slice(6, 10);
+    }
+
+    input.value = formatted;
+}
+window.formatPhoneInput = formatPhoneInput;
+
+// Show add contacts modal
+function showAddContactsModal() {
+    document.getElementById('addContactsModal').classList.add('active');
+}
+window.showAddContactsModal = showAddContactsModal;
+
+// Close add contacts modal
+function closeAddContactsModal() {
+    document.getElementById('addContactsModal').classList.remove('active');
+    loadSmsContacts(); // Refresh contacts list
+}
+window.closeAddContactsModal = closeAddContactsModal;
+
+// Save new contact
+async function saveNewContact() {
+    const name = document.getElementById('newContactName').value.trim();
+    const phone = document.getElementById('newContactPhone').value.trim();
+
+    if (!name || !phone) {
+        alert('Please enter both name and phone number');
+        return;
+    }
+
+    const normalizedPhone = normalizePhoneNumber(phone);
+    if (!normalizedPhone) {
+        alert('Please enter a valid US phone number');
+        return;
+    }
+
+    try {
+        await addDoc(collection(db, `users/${window.currentUser.uid}/contacts`), {
+            name,
+            phone: normalizedPhone,
+            tempoUserId: null,
+            importedAt: serverTimestamp(),
+            source: 'manual'
+        });
+
+        document.getElementById('newContactName').value = '';
+        document.getElementById('newContactPhone').value = '';
+        alert('Contact added!');
+        loadSmsContacts();
+    } catch (error) {
+        console.error('Error saving contact:', error);
+        alert('Error saving contact: ' + error.message);
+    }
+}
+window.saveNewContact = saveNewContact;
+
+// Parse and save pasted contacts
+async function parseAndSavePastedContacts() {
+    const text = document.getElementById('pasteContactsArea').value.trim();
+    if (!text) {
+        alert('Please paste contact information');
+        return;
+    }
+
+    const lines = text.split('\n').filter(l => l.trim());
+    let saved = 0;
+
+    for (const line of lines) {
+        const parts = line.split(/[,\t]+/).map(p => p.trim());
+        if (parts.length >= 2) {
+            const name = parts[0];
+            const phone = normalizePhoneNumber(parts[1]);
+
+            if (name && phone) {
+                try {
+                    await addDoc(collection(db, `users/${window.currentUser.uid}/contacts`), {
+                        name,
+                        phone,
+                        tempoUserId: null,
+                        importedAt: serverTimestamp(),
+                        source: 'paste'
+                    });
+                    saved++;
+                } catch (e) {
+                    console.error('Error saving contact:', e);
+                }
+            }
+        }
+    }
+
+    document.getElementById('pasteContactsArea').value = '';
+    alert(`Imported ${saved} contact${saved !== 1 ? 's' : ''}`);
+    loadSmsContacts();
+}
+window.parseAndSavePastedContacts = parseAndSavePastedContacts;

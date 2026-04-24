@@ -123,7 +123,355 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- SMS Invite Modal -->
+    <div class="sms-modal-overlay" id="smsInviteModal">
+        <div class="sms-modal">
+            <button class="sms-modal-close" onclick="closeSmsInviteModal()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            <div class="sms-modal-title">Send Invite</div>
+            <div class="sms-modal-subtitle" id="smsModalEventName">Event Name</div>
+
+            <!-- Recipient Selection -->
+            <div class="sms-section">
+                <div class="sms-section-label">To:</div>
+                <div class="sms-recipient-tabs">
+                    <button class="sms-tab active" data-tab="band" onclick="switchSmsRecipientTab('band')">Band</button>
+                    <button class="sms-tab" data-tab="contacts" onclick="switchSmsRecipientTab('contacts')">Contacts</button>
+                    <button class="sms-tab" data-tab="manual" onclick="switchSmsRecipientTab('manual')">Manual</button>
+                </div>
+
+                <!-- Band tab content -->
+                <div id="smsTabBand" class="sms-tab-content active">
+                    <div class="sms-recipient-list" id="smsBandMembersList">
+                        <div class="sms-empty-state">Select a band to see members</div>
+                    </div>
+                </div>
+
+                <!-- Contacts tab content -->
+                <div id="smsTabContacts" class="sms-tab-content">
+                    <div class="sms-contacts-search">
+                        <input type="text" id="smsContactsSearch" placeholder="Search contacts..." oninput="filterSmsContacts()">
+                    </div>
+                    <div class="sms-recipient-list" id="smsContactsList">
+                        <div class="sms-empty-state">No contacts yet. <a href="#" onclick="showAddContactsModal()">Add contacts</a></div>
+                    </div>
+                </div>
+
+                <!-- Manual tab content -->
+                <div id="smsTabManual" class="sms-tab-content">
+                    <div class="sms-manual-input">
+                        <input type="text" id="smsManualName" placeholder="Name">
+                        <input type="tel" id="smsManualPhone" placeholder="+1 (555) 123-4567">
+                        <button class="btn btn-small" onclick="addManualSmsRecipient()">Add</button>
+                    </div>
+                </div>
+
+                <!-- Selected recipients -->
+                <div class="sms-selected-recipients" id="smsSelectedRecipients">
+                    <div class="sms-selected-label">Selected (0):</div>
+                    <div class="sms-selected-list" id="smsSelectedList"></div>
+                </div>
+            </div>
+
+            <!-- Message Composer -->
+            <div class="sms-section">
+                <div class="sms-section-label">Message:</div>
+                <textarea id="smsMessageBody" rows="4" placeholder="Write your message..." oninput="updateSmsCharCount()"></textarea>
+                <div class="sms-char-count">
+                    <span id="smsCharCount">0</span>/160
+                </div>
+            </div>
+
+            <div class="sms-modal-actions">
+                <button class="btn btn-secondary" onclick="closeSmsInviteModal()">Cancel</button>
+                <button class="btn btn-primary" id="sendSmsBtn" onclick="sendSmsInvites()">
+                    Send Invites
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Contacts Modal -->
+    <div class="sms-modal-overlay" id="addContactsModal">
+        <div class="sms-modal">
+            <button class="sms-modal-close" onclick="closeAddContactsModal()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            <div class="sms-modal-title">Add Contacts</div>
+            <div class="sms-modal-subtitle">Import contacts to invite via SMS</div>
+
+            <!-- Manual entry -->
+            <div class="sms-section">
+                <div class="sms-section-label">Add one contact:</div>
+                <div class="add-contact-form">
+                    <input type="text" id="newContactName" placeholder="Name">
+                    <input type="tel" id="newContactPhone" placeholder="+1 (555) 123-4567">
+                    <button class="btn btn-small" onclick="saveNewContact()">Add</button>
+                </div>
+            </div>
+
+            <!-- Paste multiple -->
+            <div class="sms-section">
+                <div class="sms-section-label">Paste multiple contacts:</div>
+                <textarea id="pasteContactsArea" rows="4" placeholder="Name, phone&#10;John Doe, 555-123-4567&#10;Jane Smith, 555-987-6543"></textarea>
+                <button class="btn btn-secondary" onclick="parseAndSavePastedContacts()" style="margin-top: 8px;">Import Pasted Contacts</button>
+            </div>
+
+            <div class="sms-modal-actions">
+                <button class="btn btn-secondary" onclick="closeAddContactsModal()">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unified Invite Modal (SMS + Email) -->
+    <div class="invite-modal-overlay" id="unifiedInviteModal">
+        <div class="invite-modal">
+            <button class="invite-modal-close" onclick="closeUnifiedInviteModal()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+
+            <div class="invite-modal-header">
+                <div class="invite-modal-title">Send Invites</div>
+                <div class="invite-modal-subtitle" id="inviteModalEventName"></div>
+            </div>
+
+            <!-- Recipient Selection -->
+            <div class="invite-section">
+                <div class="invite-section-label">To:</div>
+                <div class="invite-recipient-tabs">
+                    <button class="invite-tab active" data-tab="band" onclick="switchInviteTab('band')">Band</button>
+                    <button class="invite-tab" data-tab="contacts" onclick="switchInviteTab('contacts')">Contacts</button>
+                    <button class="invite-tab" data-tab="manual" onclick="switchInviteTab('manual')">Add New</button>
+                </div>
+
+                <!-- Band Members Tab -->
+                <div id="inviteTabBand" class="invite-tab-content active">
+                    <div class="invite-recipient-list" id="inviteBandMembersList">
+                        <div class="invite-empty-state">No band members found</div>
+                    </div>
+                </div>
+
+                <!-- Contacts Tab -->
+                <div id="inviteTabContacts" class="invite-tab-content">
+                    <div class="invite-contacts-search">
+                        <input type="text" id="inviteContactsSearch" placeholder="Search contacts..." oninput="filterInviteContacts()">
+                    </div>
+                    <div class="invite-recipient-list" id="inviteContactsList">
+                        <div class="invite-empty-state">No contacts yet</div>
+                    </div>
+                </div>
+
+                <!-- Manual Add Tab -->
+                <div id="inviteTabManual" class="invite-tab-content">
+                    <div class="invite-manual-form">
+                        <input type="text" id="inviteManualName" placeholder="Name" class="invite-input">
+                        <input type="email" id="inviteManualEmail" placeholder="Email" class="invite-input">
+                        <input type="tel" id="inviteManualPhone" placeholder="Phone" class="invite-input">
+                        <button class="btn btn-small" onclick="addManualInviteRecipient()">Add</button>
+                    </div>
+                </div>
+
+                <!-- Selected Recipients -->
+                <div class="invite-selected-section">
+                    <div class="invite-selected-header">
+                        <span>Selected (<span id="inviteSelectedCount">0</span>)</span>
+                        <button class="btn-link" onclick="clearAllInviteRecipients()">Clear all</button>
+                    </div>
+                    <div class="invite-selected-list" id="inviteSelectedList"></div>
+                </div>
+            </div>
+
+            <!-- Delivery Method -->
+            <div class="invite-section">
+                <div class="invite-section-label">Send via:</div>
+                <div class="invite-delivery-options">
+                    <label class="invite-checkbox">
+                        <input type="checkbox" id="sendViaSms" checked onchange="updateInviteDeliveryPreview()">
+                        <span>SMS</span>
+                        <span class="channel-count" id="smsEligibleCount">(0 eligible)</span>
+                    </label>
+                    <label class="invite-checkbox">
+                        <input type="checkbox" id="sendViaEmail" checked onchange="updateInviteDeliveryPreview()">
+                        <span>Email</span>
+                        <span class="channel-count" id="emailEligibleCount">(0 eligible)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- SMS Message -->
+            <div class="invite-section" id="smsMessageSection">
+                <div class="invite-section-header">
+                    <span class="invite-section-label">SMS Message:</span>
+                    <button class="btn-link" onclick="resetToDefaultSmsMessage()">Reset to default</button>
+                </div>
+                <textarea id="inviteSmsBody" rows="3" class="invite-textarea" oninput="updateInviteSmsCharCount()"></textarea>
+                <div class="invite-char-count">
+                    <span id="inviteSmsCharCount">0</span>/160 characters
+                </div>
+            </div>
+
+            <!-- Email Message -->
+            <div class="invite-section" id="emailMessageSection">
+                <div class="invite-section-header">
+                    <span class="invite-section-label">Email Subject:</span>
+                    <button class="btn-link" onclick="resetToDefaultEmailMessage()">Reset to default</button>
+                </div>
+                <input type="text" id="inviteEmailSubject" class="invite-input" placeholder="Subject line">
+                <div class="invite-section-label" style="margin-top: 12px;">Email Body:</div>
+                <textarea id="inviteEmailBody" rows="4" class="invite-textarea"></textarea>
+            </div>
+
+            <!-- Preview -->
+            <div class="invite-section">
+                <div class="invite-section-label">Preview:</div>
+                <div class="invite-preview" id="invitePreview">
+                    <div class="invite-preview-empty">Select recipients and delivery methods to see preview</div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="invite-modal-actions">
+                <button class="btn btn-secondary" onclick="closeUnifiedInviteModal()">Cancel</button>
+                <button class="btn btn-primary" id="sendInvitesBtn" onclick="sendUnifiedInvites()">Send Invites</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Band Text Blast Modal -->
+    <div class="invite-modal-overlay" id="textBlastModal">
+        <div class="invite-modal">
+            <button class="invite-modal-close" onclick="closeTextBlastModal()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+
+            <div class="invite-modal-header">
+                <div class="invite-modal-title">Message Band</div>
+                <div class="invite-modal-subtitle" id="textBlastBandName"></div>
+            </div>
+
+            <!-- Recipients -->
+            <div class="invite-section">
+                <div class="invite-section-header">
+                    <span class="invite-section-label">To: <span id="textBlastMemberCount">0</span> band members</span>
+                    <div>
+                        <button class="btn-link" onclick="selectAllTextBlastRecipients()">Select all</button>
+                        <button class="btn-link" onclick="deselectAllTextBlastRecipients()">Deselect all</button>
+                    </div>
+                </div>
+                <div class="invite-recipient-list" id="textBlastRecipientsList"></div>
+            </div>
+
+            <!-- Delivery Method -->
+            <div class="invite-section">
+                <div class="invite-section-label">Send via:</div>
+                <div class="invite-delivery-options">
+                    <label class="invite-checkbox">
+                        <input type="checkbox" id="blastViaSms" checked onchange="updateTextBlastPreview()">
+                        <span>SMS</span>
+                        <span class="channel-count" id="blastSmsCount">(0 with phone)</span>
+                    </label>
+                    <label class="invite-checkbox">
+                        <input type="checkbox" id="blastViaEmail" checked onchange="updateTextBlastPreview()">
+                        <span>Email</span>
+                        <span class="channel-count" id="blastEmailCount">(0 with email)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Message -->
+            <div class="invite-section">
+                <div class="invite-section-label">Your message:</div>
+                <textarea id="textBlastMessage" rows="4" class="invite-textarea" placeholder="Type your message here..." oninput="updateTextBlastCharCount()"></textarea>
+                <div class="invite-char-count">
+                    <span id="textBlastCharCount">0</span>/160 characters
+                </div>
+                <div id="textBlastSignaturePreview" style="margin-top: 12px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; font-size: 13px; color: #888;">
+                    Messages will be signed:<br>
+                    <span style="color: #aaa;">— <span id="textBlastSenderName">You</span> (<span id="textBlastBandNamePreview">Band</span>)</span>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="invite-modal-actions">
+                <button class="btn btn-secondary" onclick="closeTextBlastModal()">Cancel</button>
+                <button class="btn btn-primary" id="sendTextBlastBtn" onclick="sendTextBlast()">Send Message</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Band Member Modal -->
+    <div class="invite-modal-overlay" id="editMemberModal">
+        <div class="invite-modal" style="min-height: auto; padding-top: 20px;">
+            <button class="invite-modal-close" onclick="closeEditMemberModal()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+
+            <div class="invite-modal-header">
+                <div class="invite-modal-title">Edit Member</div>
+                <div class="invite-modal-subtitle" id="editMemberName"></div>
+            </div>
+
+            <div class="invite-section">
+                <label class="invite-section-label">Email</label>
+                <input type="email" id="editMemberEmail" class="invite-input" placeholder="email@example.com">
+            </div>
+
+            <div class="invite-section">
+                <label class="invite-section-label">Phone Number</label>
+                <input type="tel" id="editMemberPhone" class="invite-input" placeholder="(555) 123-4567">
+                <p style="color: #888; font-size: 12px; margin-top: 6px; line-height: 1.4;">For your reference only. This member will not receive SMS from Tempo until they opt in themselves at <a href="/sms-signup" target="_blank" style="color: #4CAF50;">tempocal.app/sms-signup</a> or in their own profile.</p>
+            </div>
+
+            <div class="invite-modal-actions">
+                <button class="btn btn-secondary" onclick="closeEditMemberModal()">Cancel</button>
+                <button class="btn btn-primary" id="saveEditMemberBtn" onclick="saveEditMember()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Phone Modal -->
+    <div class="invite-modal-overlay" id="editPhoneModal">
+        <div class="invite-modal" style="min-height: auto; max-width: 380px; padding: 24px;">
+            <button class="invite-modal-close" onclick="closeEditPhoneModal()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+
+            <div style="text-align: center; margin-bottom: 20px;">
+                <div style="width: 56px; height: 56px; background: rgba(76, 175, 80, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4CAF50" stroke-width="2">
+                        <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/>
+                    </svg>
+                </div>
+                <div class="invite-modal-title" style="margin-bottom: 4px;">Add Phone Number</div>
+                <div class="invite-modal-subtitle" id="editPhoneMemberName" style="color: #888;"></div>
+            </div>
+
+            <div class="invite-section" style="margin-bottom: 20px;">
+                <input type="tel" id="editPhoneInput" class="invite-input" placeholder="(555) 123-4567" style="text-align: center; font-size: 18px; padding: 14px;" oninput="formatPhoneInput(this)">
+                <p style="color: #888; font-size: 12px; margin-top: 8px; text-align: center; line-height: 1.4;">For your reference only. They'll only receive SMS from Tempo if they opt in themselves at <a href="/sms-signup" target="_blank" style="color: #4CAF50;">tempocal.app/sms-signup</a>.</p>
+            </div>
+
+            <div class="invite-modal-actions" style="gap: 12px;">
+                <button class="btn btn-secondary" onclick="closeEditPhoneModal()" style="flex: 1;">Cancel</button>
+                <button class="btn btn-primary" id="saveEditPhoneBtn" onclick="saveEditPhone()" style="flex: 1;">Save</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Slide Menu -->
     <div class="slide-menu" id="slideMenu">
         <div class="menu-header">
@@ -206,14 +554,14 @@
             <button class="create-sheet-close" onclick="closeCreateSheet()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
         <div class="create-sheet-options">
-            <div class="create-sheet-option" onclick="closeCreateSheet(); startNewGig();">
+            <div class="create-sheet-option" onclick="showCreateEventFromSheet('show');">
                 <span class="create-sheet-option-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
                 <div class="create-sheet-option-text">
-                    <h4>New Gig</h4>
-                    <p>Schedule a show with rehearsals</p>
+                    <h4>New Show</h4>
+                    <p>Schedule an upcoming gig</p>
                 </div>
             </div>
-            <div class="create-sheet-option" onclick="closeCreateSheet(); showCreateRehearsal();">
+            <div class="create-sheet-option" onclick="showCreateEventFromSheet('rehearsal');">
                 <span class="create-sheet-option-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg></span>
                 <div class="create-sheet-option-text">
                     <h4>New Rehearsal</h4>
@@ -288,54 +636,64 @@
         </div>
 
         <!-- Screen: Create Post -->
-        <div class="screen" id="screenCreatePost">
-            <div class="create-post-header">
-                <button class="create-post-cancel" onclick="hideCreatePost()">Cancel</button>
-                <span class="create-post-title">New Post</span>
-                <button class="create-post-submit" id="submitPostBtn" onclick="submitPost()">Post</button>
-            </div>
-            <div class="create-post-body">
-                <div class="create-post-author">
-                    <div class="create-post-avatar" id="createPostAvatar"></div>
-                    <span class="create-post-author-name" id="createPostAuthorName"></span>
-                </div>
-                <textarea class="create-post-input" id="createPostInput" placeholder="What's on your mind?" oninput="handlePostInputChange()"></textarea>
-
-                <!-- Image preview -->
-                <div class="create-post-image-preview" id="createPostImagePreview" style="display: none;">
-                    <img id="createPostImagePreviewImg" src="">
-                    <button class="remove-image-btn" onclick="removePostImage()">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    </button>
-                </div>
-
-                <!-- Link preview -->
-                <div class="create-post-link-preview" id="createPostLinkPreview" style="display: none;">
-                    <div class="link-preview-loading" id="linkPreviewLoading" style="display: none;">
-                        <div class="spinner-small"></div>
-                        <span>Fetching link preview...</span>
+        <!-- Modal: Create Post -->
+        <div class="event-modal-overlay" id="createPostModal">
+            <div class="event-modal">
+                <button class="event-modal-close" onclick="hideCreatePost()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+                <div class="event-modal-body">
+                    <div class="create-post-header">
+                        <span class="create-post-title">New Post</span>
+                        <button class="create-post-submit" id="submitPostBtn" onclick="submitPost()">Post</button>
                     </div>
-                    <div class="link-preview-content" id="linkPreviewContent" style="display: none;">
-                        <img class="link-preview-image" id="linkPreviewImage" src="">
-                        <div class="link-preview-text">
-                            <div class="link-preview-title" id="linkPreviewTitle"></div>
-                            <div class="link-preview-description" id="linkPreviewDescription"></div>
-                            <div class="link-preview-url" id="linkPreviewUrl"></div>
+                    <div class="create-post-body">
+                        <div class="create-post-author">
+                            <div class="create-post-avatar" id="createPostAvatar"></div>
+                            <span class="create-post-author-name" id="createPostAuthorName"></span>
                         </div>
-                        <button class="remove-link-btn" onclick="removePostLink()">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                        </button>
-                    </div>
-                </div>
+                        <textarea class="create-post-input" id="createPostInput" placeholder="What's on your mind?" oninput="handlePostInputChange()"></textarea>
 
-                <div class="create-post-actions">
-                    <button class="create-post-action-btn" onclick="triggerPostImageUpload()">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                        Photo
-                    </button>
+                        <!-- Image preview -->
+                        <div class="create-post-image-preview" id="createPostImagePreview" style="display: none;">
+                            <img id="createPostImagePreviewImg" src="">
+                            <button class="remove-image-btn" onclick="removePostImage()">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                        </div>
+
+                        <!-- Link preview -->
+                        <div class="create-post-link-preview" id="createPostLinkPreview" style="display: none;">
+                            <div class="link-preview-loading" id="linkPreviewLoading" style="display: none;">
+                                <div class="spinner-small"></div>
+                                <span>Fetching link preview...</span>
+                            </div>
+                            <div class="link-preview-content" id="linkPreviewContent" style="display: none;">
+                                <img class="link-preview-image" id="linkPreviewImage" src="">
+                                <div class="link-preview-text">
+                                    <div class="link-preview-title" id="linkPreviewTitle"></div>
+                                    <div class="link-preview-description" id="linkPreviewDescription"></div>
+                                    <div class="link-preview-url" id="linkPreviewUrl"></div>
+                                </div>
+                                <button class="remove-link-btn" onclick="removePostLink()">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="create-post-actions">
+                            <button class="create-post-action-btn" onclick="triggerPostImageUpload()">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                                Photo
+                            </button>
+                        </div>
+                    </div>
+                    <input type="file" id="postImageInput" accept="image/*" style="display:none" onchange="handlePostImageSelect(event)">
                 </div>
             </div>
-            <input type="file" id="postImageInput" accept="image/*" style="display:none" onchange="handlePostImageSelect(event)">
         </div>
 
         <!-- Screen: Post Detail -->
@@ -498,7 +856,17 @@
                     <input type="text" id="profileLocation" placeholder="e.g. Brooklyn, NY" autocomplete="off" onkeyup="filterLocations(this, 'profileLocationDropdown')" onfocus="filterLocations(this, 'profileLocationDropdown')">
                     <div class="location-dropdown" id="profileLocationDropdown"></div>
                 </div>
-                
+
+                <label>Phone Number <span style="color: #666; font-weight: normal;">(optional, for band notifications)</span></label>
+                <input type="tel" id="profilePhone" placeholder="(555) 123-4567" oninput="formatPhoneInput(this); updateSmsConsentVisibility('profile')">
+                <div id="profileSmsConsentBlock" class="sms-consent-block" style="display: none; margin-top: 8px; padding: 12px 14px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;">
+                    <label style="display: flex; gap: 10px; align-items: flex-start; cursor: pointer; margin: 0;">
+                        <input type="checkbox" id="profileSmsConsent" style="margin-top: 3px; width: 16px; height: 16px; accent-color: #4CAF50; flex-shrink: 0;">
+                        <span style="font-size: 12px; color: #ccc; font-weight: normal; line-height: 1.5;">I agree to receive SMS from Tempo about rehearsals, gigs, RSVPs, and band group messages. Msg &amp; data rates may apply. Msg frequency varies. Reply STOP to opt out, HELP for help. See <a href="/sms" target="_blank" style="color: #4CAF50;">SMS Terms</a> and <a href="/privacy" target="_blank" style="color: #4CAF50;">Privacy Policy</a>.</span>
+                    </label>
+                    <p style="font-size: 11px; color: #888; margin: 8px 0 0 26px; line-height: 1.4;">Mobile information and opt-in consent will not be shared with third parties or affiliates for marketing or promotional purposes.</p>
+                </div>
+
                 <label>Bio (optional)</label>
                 <textarea id="profileBio" placeholder="Tell us about yourself and your musical background..." rows="4"></textarea>
             </div>
@@ -609,7 +977,17 @@
                     <input type="text" id="editProfileLocation" placeholder="e.g. Brooklyn, NY" autocomplete="off" onkeyup="filterLocations(this, 'editProfileLocationDropdown')" onfocus="filterLocations(this, 'editProfileLocationDropdown')">
                     <div class="location-dropdown" id="editProfileLocationDropdown"></div>
                 </div>
-                
+
+                <label>Phone Number <span style="color: #666; font-weight: normal;">(for band notifications)</span></label>
+                <input type="tel" id="editProfilePhone" placeholder="(555) 123-4567" oninput="formatPhoneInput(this); updateSmsConsentVisibility('editProfile')">
+                <div id="editProfileSmsConsentBlock" class="sms-consent-block" style="display: none; margin-top: 8px; padding: 12px 14px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;">
+                    <label style="display: flex; gap: 10px; align-items: flex-start; cursor: pointer; margin: 0;">
+                        <input type="checkbox" id="editProfileSmsConsent" style="margin-top: 3px; width: 16px; height: 16px; accent-color: #4CAF50; flex-shrink: 0;">
+                        <span style="font-size: 12px; color: #ccc; font-weight: normal; line-height: 1.5;">I agree to receive SMS from Tempo about rehearsals, gigs, RSVPs, and band group messages. Msg &amp; data rates may apply. Msg frequency varies. Reply STOP to opt out, HELP for help. See <a href="/sms" target="_blank" style="color: #4CAF50;">SMS Terms</a> and <a href="/privacy" target="_blank" style="color: #4CAF50;">Privacy Policy</a>.</span>
+                    </label>
+                    <p style="font-size: 11px; color: #888; margin: 8px 0 0 26px; line-height: 1.4;">Mobile information and opt-in consent will not be shared with third parties or affiliates for marketing or promotional purposes.</p>
+                </div>
+
                 <label>Bio (optional)</label>
                 <textarea id="editProfileBio" placeholder="Tell us about yourself..." rows="4"></textarea>
             </div>
@@ -1140,73 +1518,86 @@
         </div>
         
         <!-- Screen: Create Band -->
-        <div class="screen" id="screenCreateBand">
-            <div class="logo"><img src="/tempo-logo.svg" alt="Tempo" class="logo-img"></div>
-            <p class="tagline">Create a new band</p>
-            
-            <div class="card">
-                <h2>Band Info</h2>
-                
-                <div class="band-photo-section">
-                    <div id="bandPhotoPreview" class="band-photo-circle"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="19" cy="7" r="3"/><path d="M19 21v-1a3 3 0 00-3-3h-1"/></svg></div>
-                    <input type="file" id="bandPhotoInput" accept="image/*" style="display:none" onchange="handleBandPhotoSelect(event)">
-                    <button class="btn btn-secondary" style="margin-top: 12px; padding: 8px 16px; font-size: 13px;" onclick="document.getElementById('bandPhotoInput').click()">Upload Band Photo</button>
+        <!-- Modal: Create Band -->
+        <div class="event-modal-overlay" id="createBandModal">
+            <div class="event-modal">
+                <button class="event-modal-close" onclick="closeCreateBandModal()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+                <div class="event-modal-body">
+                    <h1 class="event-modal-title">Create a New Band</h1>
+
+                    <div class="card">
+                        <h2>Band Info</h2>
+
+                        <div class="band-photo-section">
+                            <div id="bandPhotoPreview" class="band-photo-circle"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="19" cy="7" r="3"/><path d="M19 21v-1a3 3 0 00-3-3h-1"/></svg></div>
+                            <input type="file" id="bandPhotoInput" accept="image/*" style="display:none" onchange="handleBandPhotoSelect(event)">
+                            <button class="btn btn-secondary" style="margin-top: 12px; padding: 8px 16px; font-size: 13px;" onclick="document.getElementById('bandPhotoInput').click()">Upload Band Photo</button>
+                        </div>
+
+                        <label>Band Name</label>
+                        <input type="text" id="newBandName" placeholder="e.g. The Straders">
+
+                        <label>Bio</label>
+                        <textarea id="newBandBio" placeholder="Tell us about your band..." rows="3"></textarea>
+                    </div>
+
+                    <div class="card">
+                        <h2>Band Leader</h2>
+
+                        <div class="leader-toggle">
+                            <label class="radio-option">
+                                <input type="radio" name="leaderType" value="self" checked onchange="toggleLeaderInput()">
+                                <span>I'm the band leader</span>
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="leaderType" value="other" onchange="toggleLeaderInput()">
+                                <span>Invite someone else as leader</span>
+                            </label>
+                        </div>
+
+                        <div id="inviteLeaderFields" style="display: none; margin-top: 16px;">
+                            <p style="color: #888; font-size: 13px; margin-bottom: 12px;">They'll receive an invite to lead the band. You'll manage it until they accept.</p>
+                            <div class="member-input-row">
+                                <input type="text" id="inviteLeaderName" class="member-name-input" placeholder="Leader's Name">
+                                <input type="email" id="inviteLeaderEmail" class="member-email-input" placeholder="Email">
+                                <input type="tel" id="inviteLeaderPhone" class="member-phone-input" placeholder="Phone">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h2>Add Members</h2>
+                        <p style="color: #888; font-size: 13px; margin-bottom: 16px;">Members will receive invites via email and/or SMS.</p>
+
+                        <div id="bandMemberInputs">
+                            <div class="member-input-row">
+                                <input type="text" class="member-name-input" placeholder="Name">
+                                <input type="email" class="member-email-input" placeholder="Email">
+                                <input type="tel" class="member-phone-input" placeholder="Phone">
+                            </div>
+                            <div class="member-input-row">
+                                <input type="text" class="member-name-input" placeholder="Name">
+                                <input type="email" class="member-email-input" placeholder="Email">
+                                <input type="tel" class="member-phone-input" placeholder="Phone">
+                            </div>
+                            <div class="member-input-row">
+                                <input type="text" class="member-name-input" placeholder="Name">
+                                <input type="email" class="member-email-input" placeholder="Email">
+                                <input type="tel" class="member-phone-input" placeholder="Phone">
+                            </div>
+                        </div>
+
+                        <button class="btn btn-secondary" onclick="addMemberInputRow()" style="margin-top: 12px; padding: 8px 16px; font-size: 13px;">+ Add Another Member</button>
+                    </div>
+
+                    <button class="btn" onclick="saveBand()">Create Band</button>
                 </div>
-                
-                <label>Band Name</label>
-                <input type="text" id="newBandName" placeholder="e.g. The Straders">
-                
-                <label>Bio</label>
-                <textarea id="newBandBio" placeholder="Tell us about your band..." rows="3"></textarea>
             </div>
-            
-            <div class="card">
-                <h2>Band Leader</h2>
-                
-                <div class="leader-toggle">
-                    <label class="radio-option">
-                        <input type="radio" name="leaderType" value="self" checked onchange="toggleLeaderInput()">
-                        <span>I'm the band leader</span>
-                    </label>
-                    <label class="radio-option">
-                        <input type="radio" name="leaderType" value="other" onchange="toggleLeaderInput()">
-                        <span>Invite someone else as leader</span>
-                    </label>
-                </div>
-                
-                <div id="inviteLeaderFields" style="display: none; margin-top: 16px;">
-                    <p style="color: #888; font-size: 13px; margin-bottom: 12px;">They'll receive an invite to lead the band. You'll manage it until they accept.</p>
-                    <div class="member-input-row">
-                        <input type="text" id="inviteLeaderName" class="member-name-input" placeholder="Leader's Name">
-                        <input type="email" id="inviteLeaderEmail" class="member-email-input" placeholder="Leader's Email">
-                    </div>
-                </div>
-            </div>
-            
-            <div class="card">
-                <h2>Add Members</h2>
-                <p style="color: #888; font-size: 13px; margin-bottom: 16px;">Members will receive an email invite to join.</p>
-                
-                <div id="bandMemberInputs">
-                    <div class="member-input-row">
-                        <input type="text" class="member-name-input" placeholder="Name">
-                        <input type="email" class="member-email-input" placeholder="Email">
-                    </div>
-                    <div class="member-input-row">
-                        <input type="text" class="member-name-input" placeholder="Name">
-                        <input type="email" class="member-email-input" placeholder="Email">
-                    </div>
-                    <div class="member-input-row">
-                        <input type="text" class="member-name-input" placeholder="Name">
-                        <input type="email" class="member-email-input" placeholder="Email">
-                    </div>
-                </div>
-                
-                <button class="btn btn-secondary" onclick="addMemberInputRow()" style="margin-top: 12px; padding: 8px 16px; font-size: 13px;">+ Add Another Member</button>
-            </div>
-            
-            <button class="btn" onclick="saveBand()">Create Band</button>
-            <button class="btn btn-secondary" onclick="showMyBands()" style="margin-top: 12px;">Cancel</button>
         </div>
 
         <!-- Screen: Create Rehearsal -->
@@ -1422,6 +1813,18 @@
                 <div id="rehearsalDetailFiles"></div>
             </div>
 
+            <!-- Send Invites Section (for organizer) -->
+            <div class="card" id="rehearsalSmsSection" style="display: none;">
+                <div class="card-header">
+                    <h2>Invite Band Members</h2>
+                </div>
+                <p style="color: #888; font-size: 13px; margin-bottom: 16px;">Send invites via SMS and/or email to get RSVPs</p>
+                <button class="btn btn-full" onclick="openRehearsalInviteModal()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 6px;"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
+                    Send Invites
+                </button>
+            </div>
+
             <button class="btn btn-secondary" onclick="showMySchedule()" style="margin-top: 20px;">Back to Schedule</button>
         </div>
 
@@ -1446,7 +1849,15 @@
                     <button class="btn" onclick="shareBandToMessages()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Share</button>
                 </div>
             </div>
-            
+
+            <!-- Send Message to Band -->
+            <button class="btn btn-full" id="sendBandMessageBtn" onclick="openBandTextBlastFromDetail()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 6px;">
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                </svg>
+                Send Message to Band
+            </button>
+
             <div class="card">
                 <div class="card-header">
                     <h2>Members</h2>
@@ -1487,8 +1898,212 @@
                 </p>
             </div>
         </div>
-        
-        <!-- Screen 1: Show Details -->
+
+        <!-- Modal: Create Event (Unified Partiful-style) -->
+        <div class="event-modal-overlay" id="createEventModal">
+            <div class="event-modal">
+                <button class="event-modal-close" onclick="closeCreateEventModal()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+                <div class="event-modal-body">
+                    <!-- Cover Image Area -->
+                    <div class="event-cover-area" id="eventCoverArea">
+                <div class="event-cover-preview" id="eventCoverPreview" style="display: none;">
+                    <img id="eventCoverImg" src="">
+                    <button class="event-cover-remove" onclick="removeEventCover()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <div class="event-cover-upload" id="eventCoverUpload" onclick="document.getElementById('eventCoverInput').click()">
+                    <div class="event-cover-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                    </div>
+                    <div class="event-cover-text">Add cover image</div>
+                    <div class="event-cover-defaults">
+                        <button class="event-cover-default" onclick="event.stopPropagation(); setDefaultCover('stage')">🎤</button>
+                        <button class="event-cover-default" onclick="event.stopPropagation(); setDefaultCover('crowd')">🎸</button>
+                        <button class="event-cover-default" onclick="event.stopPropagation(); setDefaultCover('lights')">🎹</button>
+                        <button class="event-cover-default" onclick="event.stopPropagation(); setDefaultCover('drums')">🥁</button>
+                    </div>
+                </div>
+                <input type="file" id="eventCoverInput" accept="image/*" style="display:none" onchange="handleEventCoverSelect(event)">
+            </div>
+
+            <!-- Event Type Toggle -->
+            <div class="event-type-toggle">
+                <button class="event-type-btn active" id="eventTypeShow" onclick="setEventType('show')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    Show
+                </button>
+                <button class="event-type-btn" id="eventTypeRehearsal" onclick="setEventType('rehearsal')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+                    Rehearsal
+                </button>
+            </div>
+
+            <!-- Main Fields -->
+            <div class="event-main-fields">
+                <input type="text" id="eventTitle" class="event-title-input" placeholder="Event title">
+
+                <div class="event-band-select" id="eventBandSelectSection">
+                    <select id="eventBandSelect" onchange="onEventBandSelected()">
+                        <option value="">Select a band (optional)</option>
+                    </select>
+                </div>
+
+                <div class="event-datetime-row">
+                    <div class="event-datetime-field">
+                        <label>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            Date
+                        </label>
+                        <input type="date" id="eventDate" min="2024-01-01" max="2099-12-31">
+                    </div>
+                    <div class="event-datetime-field">
+                        <label>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
+                            Time
+                        </label>
+                        <input type="time" id="eventTime">
+                    </div>
+                </div>
+
+                <div class="event-location-field">
+                    <label>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                        Location
+                    </label>
+                    <input type="text" id="eventLocation" placeholder="Venue or address">
+                </div>
+
+                <div class="event-notes-field">
+                    <textarea id="eventNotes" placeholder="Add notes, details, or instructions..." rows="2"></textarea>
+                </div>
+            </div>
+
+            <!-- Show-specific fields (collapsed) -->
+            <details class="collapsible-section" id="showDetailsSection">
+                <summary>Show Details</summary>
+                <div class="details-content">
+                    <div class="event-times-row">
+                        <div>
+                            <label>Doors</label>
+                            <input type="time" id="eventDoors">
+                        </div>
+                        <div>
+                            <label>Set Time</label>
+                            <input type="time" id="eventSetTime">
+                        </div>
+                    </div>
+                    <div class="event-times-row">
+                        <div>
+                            <label>Load-in</label>
+                            <input type="time" id="eventLoadIn">
+                        </div>
+                        <div>
+                            <label>Set Length</label>
+                            <select id="eventSetLength">
+                                <option value="">--</option>
+                                <option value="30">30 min</option>
+                                <option value="45">45 min</option>
+                                <option value="60">60 min</option>
+                                <option value="90">90 min</option>
+                                <option value="120">2+ hrs</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="event-ticket-field">
+                        <label>Ticket Link</label>
+                        <input type="url" id="eventTicketLink" placeholder="https://...">
+                    </div>
+                </div>
+            </details>
+
+            <!-- Rehearsal-specific fields (collapsed) -->
+            <details class="collapsible-section" id="rehearsalOptionsSection" style="display: none;">
+                <summary>Rehearsal Options</summary>
+                <div class="details-content">
+                    <div class="event-end-time-row">
+                        <label>End Time</label>
+                        <input type="time" id="eventEndTime">
+                    </div>
+
+                    <label class="checkbox-row" style="margin-top: 16px;">
+                        <input type="checkbox" id="eventRecurring" onchange="toggleEventRecurring()">
+                        <span>Make this recurring</span>
+                    </label>
+
+                    <div id="eventRecurringOptions" style="display: none; margin-top: 12px;">
+                        <div class="event-recurring-row">
+                            <div>
+                                <label>Repeat</label>
+                                <select id="eventFrequency">
+                                    <option value="weekly">Weekly</option>
+                                    <option value="biweekly">Every 2 weeks</option>
+                                    <option value="monthly">Monthly</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Until</label>
+                                <input type="date" id="eventRecurringEnd" min="2024-01-01" max="2099-12-31">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="eventCheckCalendarsSection" style="display: none; margin-top: 16px;">
+                        <button class="btn btn-secondary" onclick="openEventAvailabilityCalendar()" style="width: 100%;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            Check Band Calendars
+                        </button>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Materials section (collapsed) -->
+            <details class="collapsible-section">
+                <summary>Materials</summary>
+                <div class="details-content">
+                    <!-- Setlist -->
+                    <div class="event-setlist-section">
+                        <label>Setlist</label>
+                        <div id="eventSetlistItems"></div>
+                        <div class="add-song-row">
+                            <input type="text" id="eventNewSongTitle" placeholder="Song title">
+                            <input type="text" id="eventNewSongDuration" placeholder="3:45" class="duration-input">
+                            <button class="add-song-btn" onclick="addEventSong()">+</button>
+                        </div>
+                    </div>
+
+                    <!-- Playlist -->
+                    <div class="event-playlist-section" style="margin-top: 16px;">
+                        <label>Practice Playlist</label>
+                        <input type="url" id="eventPlaylistUrl" placeholder="Spotify, YouTube, or SoundCloud link">
+                    </div>
+
+                    <!-- Files -->
+                    <div class="event-files-section" style="margin-top: 16px;">
+                        <label>Files</label>
+                        <div id="eventUploadedFiles"></div>
+                        <div class="file-upload-area" onclick="document.getElementById('eventFileInput').click()">
+                            <div class="upload-text">Tap to upload files</div>
+                            <div class="upload-subtext">Charts, audio, PDFs</div>
+                        </div>
+                        <input type="file" id="eventFileInput" multiple accept="audio/*,.pdf,.doc,.docx" style="display:none" onchange="handleEventFileSelect(event)">
+                    </div>
+                </div>
+            </details>
+
+                    <!-- Action buttons -->
+                    <div class="event-actions">
+                        <button class="btn btn-primary event-create-btn" id="createEventBtn" onclick="createEvent()">
+                            <span id="createEventBtnText">Create Show</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen 1: Show Details (Legacy - hidden) -->
         <div class="screen" id="screen1">
             <div class="logo"><img src="/tempo-logo.svg" alt="Tempo" class="logo-img"></div>
             <p class="tagline">Schedule rehearsals for your show</p>
@@ -1806,6 +2421,18 @@
                 </div>
             </div>
             
+            <!-- Send Invites Section -->
+            <div class="card" id="gigInviteSection">
+                <div class="card-header">
+                    <h2>Invite Band Members</h2>
+                </div>
+                <p style="color: #888; font-size: 13px; margin-bottom: 16px;">Send invites via SMS and/or email to get availability</p>
+                <button class="btn btn-full" onclick="openGigInviteModal()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 6px;"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
+                    Send Invites
+                </button>
+            </div>
+
             <div class="dashboard-actions">
                 <button class="btn btn-secondary" onclick="refreshDashboard()">↻ Refresh</button>
                 <button class="btn btn-secondary edit-gig-btn" onclick="editGig()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M17 3l4 4L7 21H3v-4L17 3z"/></svg>Edit Gig Details</button>

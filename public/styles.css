@@ -1074,11 +1074,33 @@ body {
     margin-bottom: 12px;
     cursor: pointer;
     transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 16px;
 }
 
 .band-card:hover {
     background: rgba(255,255,255,0.05);
     border-color: rgba(255,255,255,0.15);
+}
+
+.band-card-photo {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background-color: rgba(255,255,255,0.08);
+    background-size: cover;
+    background-position: center;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+}
+
+.band-card-content {
+    flex: 1;
+    min-width: 0;
 }
 
 .band-card-name {
@@ -1295,6 +1317,21 @@ body {
     color: #e74c3c;
 }
 
+.member-item-clickable {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.member-item-clickable:hover {
+    background: rgba(255,255,255,0.08);
+}
+
+.member-contact-row {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+}
+
 .btn-small {
     padding: 6px 12px;
     background: rgba(255,255,255,0.1);
@@ -1380,11 +1417,15 @@ body {
 }
 
 .member-name-input {
-    flex: 0.8 !important;
+    flex: 0.7 !important;
 }
 
 .member-email-input {
-    flex: 1.2 !important;
+    flex: 1 !important;
+}
+
+.member-phone-input {
+    flex: 0.8 !important;
 }
 
 .card-header {
@@ -7084,4 +7125,1287 @@ body.hide-tab-bar .container.has-tab-bar {
 .bands-sign-in-prompt p {
     color: #888;
     margin-bottom: 16px;
+}
+
+/* ============================================
+   UNIFIED EVENT CREATION (Partiful-style)
+   ============================================ */
+
+/* Event Modal Overlay */
+.event-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 2000;
+    overflow-y: auto;
+}
+
+.event-modal-overlay.active {
+    display: block;
+}
+
+.event-modal {
+    position: relative;
+    background: #0a0a0c;
+    min-height: 100vh;
+    max-width: 540px;
+    margin: 0 auto;
+    padding: 60px 20px 40px;
+}
+
+.event-modal-close {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    width: 44px;
+    height: 44px;
+    background: rgba(255,255,255,0.1);
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2001;
+    transition: background 0.2s;
+}
+
+.event-modal-close:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+.event-modal-body {
+    /* Scrollable content */
+}
+
+.event-modal-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+/* Create Post Modal adjustments */
+.event-modal .create-post-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    margin-bottom: 16px;
+    position: relative;
+}
+
+.event-modal .create-post-header .create-post-title {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.event-modal .create-post-header .create-post-submit {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* Cover Image Area */
+.event-cover-area {
+    position: relative;
+    width: 100%;
+    height: 180px;
+    margin-bottom: 20px;
+    border-radius: 16px;
+    overflow: hidden;
+    background: linear-gradient(145deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+    border: 1px dashed rgba(255,255,255,0.15);
+}
+
+.event-cover-preview {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.event-cover-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.event-cover-remove {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    background: rgba(0,0,0,0.6);
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.event-cover-remove:hover {
+    background: rgba(0,0,0,0.8);
+}
+
+.event-cover-upload {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.event-cover-upload:hover {
+    background: rgba(255,255,255,0.02);
+}
+
+.event-cover-icon {
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.event-cover-text {
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+
+.event-cover-defaults {
+    display: flex;
+    gap: 8px;
+}
+
+.event-cover-default {
+    width: 36px;
+    height: 36px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.event-cover-default:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.2);
+    transform: scale(1.05);
+}
+
+/* Event Type Toggle */
+.event-type-toggle {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    padding: 4px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+}
+
+.event-type-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 20px;
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    color: #888;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.event-type-btn:hover {
+    color: #aaa;
+}
+
+.event-type-btn.active {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+}
+
+.event-type-btn svg {
+    opacity: 0.7;
+}
+
+.event-type-btn.active svg {
+    opacity: 1;
+}
+
+/* Main Fields */
+.event-main-fields {
+    margin-bottom: 16px;
+}
+
+.event-title-input {
+    width: 100%;
+    padding: 18px 16px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.03);
+    color: #fff;
+    font-size: 20px;
+    font-weight: 500;
+    font-family: inherit;
+    margin-bottom: 16px;
+    transition: border-color 0.2s;
+}
+
+.event-title-input::placeholder {
+    color: #555;
+}
+
+.event-title-input:focus {
+    outline: none;
+    border-color: rgba(255,255,255,0.25);
+}
+
+.event-band-select {
+    margin-bottom: 16px;
+}
+
+.event-band-select select {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.03);
+    color: #e8e8e8;
+    font-size: 15px;
+    font-family: inherit;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpolyline points='6,9 12,15 18,9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+}
+
+.event-band-select select option {
+    background: #1a1a1c;
+    color: #e8e8e8;
+}
+
+.event-datetime-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.event-datetime-field {
+    flex: 1;
+}
+
+.event-datetime-field label,
+.event-location-field label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #888;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+
+.event-datetime-field label svg,
+.event-location-field label svg {
+    opacity: 0.7;
+}
+
+.event-datetime-field input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.03);
+    color: #e8e8e8;
+    font-size: 15px;
+    font-family: inherit;
+}
+
+.event-datetime-field input:focus {
+    outline: none;
+    border-color: rgba(255,255,255,0.25);
+}
+
+.event-location-field {
+    margin-bottom: 16px;
+}
+
+.event-location-field input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.03);
+    color: #e8e8e8;
+    font-size: 15px;
+    font-family: inherit;
+}
+
+.event-location-field input::placeholder {
+    color: #555;
+}
+
+.event-location-field input:focus {
+    outline: none;
+    border-color: rgba(255,255,255,0.25);
+}
+
+.event-notes-field textarea {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    background: rgba(255,255,255,0.03);
+    color: #e8e8e8;
+    font-size: 15px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 60px;
+}
+
+.event-notes-field textarea::placeholder {
+    color: #555;
+}
+
+.event-notes-field textarea:focus {
+    outline: none;
+    border-color: rgba(255,255,255,0.25);
+}
+
+/* Show Details Section */
+.event-times-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.event-times-row > div {
+    flex: 1;
+}
+
+.event-times-row label {
+    display: block;
+    color: #888;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+
+.event-times-row input,
+.event-times-row select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.02);
+    color: #e8e8e8;
+    font-size: 14px;
+    font-family: inherit;
+}
+
+.event-times-row select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2'%3E%3Cpolyline points='6,9 12,15 18,9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+}
+
+.event-ticket-field {
+    margin-top: 4px;
+}
+
+.event-ticket-field label {
+    display: block;
+    color: #888;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+
+.event-ticket-field input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.02);
+    color: #e8e8e8;
+    font-size: 14px;
+    font-family: inherit;
+}
+
+/* Rehearsal Options */
+.event-end-time-row {
+    margin-bottom: 4px;
+}
+
+.event-end-time-row label {
+    display: block;
+    color: #888;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+
+.event-end-time-row input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.02);
+    color: #e8e8e8;
+    font-size: 14px;
+    font-family: inherit;
+}
+
+.event-recurring-row {
+    display: flex;
+    gap: 12px;
+}
+
+.event-recurring-row > div {
+    flex: 1;
+}
+
+.event-recurring-row label {
+    display: block;
+    color: #888;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+
+.event-recurring-row select,
+.event-recurring-row input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.02);
+    color: #e8e8e8;
+    font-size: 14px;
+    font-family: inherit;
+}
+
+/* Materials Section */
+.event-setlist-section label,
+.event-playlist-section label,
+.event-files-section label {
+    display: block;
+    color: #888;
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
+.event-playlist-section input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.02);
+    color: #e8e8e8;
+    font-size: 14px;
+    font-family: inherit;
+}
+
+.event-playlist-section input::placeholder {
+    color: #555;
+}
+
+/* Action Buttons */
+.event-actions {
+    margin-top: 24px;
+    margin-bottom: 40px;
+}
+
+.event-create-btn {
+    margin-bottom: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 16px 24px;
+}
+
+/* ============================================
+   SMS INVITE MODAL
+   ============================================ */
+
+.sms-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 2000;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.sms-modal-overlay.active {
+    display: block;
+}
+
+.sms-modal {
+    background: #1a1a1d;
+    border-radius: 16px;
+    max-width: 500px;
+    margin: 20px auto;
+    padding: 24px;
+    position: relative;
+}
+
+.sms-modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+}
+
+.sms-modal-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #fff;
+}
+
+.sms-modal-subtitle {
+    font-size: 14px;
+    color: #888;
+    margin-bottom: 24px;
+}
+
+.sms-section {
+    margin-bottom: 20px;
+}
+
+.sms-section-label {
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 8px;
+}
+
+.sms-recipient-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.sms-tab {
+    flex: 1;
+    padding: 10px 16px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: #888;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.sms-tab.active {
+    background: rgba(76, 175, 80, 0.15);
+    border-color: rgba(76, 175, 80, 0.4);
+    color: #4CAF50;
+}
+
+.sms-tab-content {
+    display: none;
+}
+
+.sms-tab-content.active {
+    display: block;
+}
+
+.sms-recipient-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    padding: 8px;
+}
+
+.sms-recipient-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.sms-recipient-item:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+.sms-recipient-item.selected {
+    background: rgba(76, 175, 80, 0.15);
+}
+
+.sms-recipient-check {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 4px;
+}
+
+.sms-recipient-item.selected .sms-recipient-check {
+    background: #4CAF50;
+    border-color: #4CAF50;
+}
+
+.sms-recipient-name {
+    font-size: 14px;
+    color: #fff;
+}
+
+.sms-recipient-phone {
+    font-size: 12px;
+    color: #666;
+}
+
+.sms-empty-state {
+    padding: 20px;
+    text-align: center;
+    color: #666;
+}
+
+.sms-manual-input {
+    display: flex;
+    gap: 8px;
+}
+
+.sms-manual-input input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+    color: #e8e8e8;
+    font-size: 14px;
+}
+
+.sms-selected-recipients {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.sms-selected-label {
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 8px;
+}
+
+.sms-selected-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.sms-selected-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: rgba(76, 175, 80, 0.2);
+    border-radius: 16px;
+    font-size: 13px;
+    color: #4CAF50;
+}
+
+.sms-selected-chip button {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+}
+
+#smsMessageBody {
+    width: 100%;
+    padding: 14px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.03);
+    color: #e8e8e8;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.sms-char-count {
+    text-align: right;
+    font-size: 12px;
+    color: #666;
+    margin-top: 4px;
+}
+
+.sms-modal-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.sms-modal-actions .btn {
+    flex: 1;
+}
+
+.add-contact-form {
+    display: flex;
+    gap: 8px;
+}
+
+.add-contact-form input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+    color: #e8e8e8;
+    font-size: 14px;
+}
+
+#pasteContactsArea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.03);
+    color: #e8e8e8;
+    font-size: 14px;
+    font-family: inherit;
+}
+
+.sms-invites-list {
+    margin-bottom: 16px;
+}
+
+.sms-invite-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.sms-rsvp-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+}
+
+.sms-rsvp-badge.yes {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4CAF50;
+}
+
+.sms-rsvp-badge.no {
+    background: rgba(244, 67, 54, 0.2);
+    color: #f44336;
+}
+
+.sms-rsvp-badge.maybe {
+    background: rgba(255, 193, 7, 0.2);
+    color: #FFC107;
+}
+
+.sms-rsvp-badge.pending {
+    background: rgba(255,255,255,0.1);
+    color: #888;
+}
+
+.sms-action-buttons {
+    display: flex;
+    gap: 12px;
+}
+
+.sms-action-buttons .btn {
+    flex: 1;
+}
+
+/* ============================================
+   UNIFIED INVITE MODAL STYLES
+   ============================================ */
+
+.invite-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 2000;
+    overflow-y: auto;
+}
+
+.invite-modal-overlay.active {
+    display: block;
+}
+
+.invite-modal {
+    position: relative;
+    background: #0a0a0c;
+    min-height: 100vh;
+    max-width: 540px;
+    margin: 0 auto;
+    padding: 60px 20px 40px;
+}
+
+.invite-modal-close {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    width: 44px;
+    height: 44px;
+    background: rgba(255,255,255,0.1);
+    border: none;
+    border-radius: 50%;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2001;
+    transition: background 0.2s;
+}
+
+.invite-modal-close:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+.invite-modal-header {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.invite-modal-title {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.invite-modal-subtitle {
+    font-size: 16px;
+    color: #888;
+}
+
+.invite-section {
+    margin-bottom: 24px;
+}
+
+.invite-section-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #e8e8e8;
+    margin-bottom: 8px;
+}
+
+.invite-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.invite-recipient-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.invite-tab {
+    flex: 1;
+    padding: 10px 16px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: transparent;
+    color: #888;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.invite-tab.active {
+    background: rgba(76, 175, 80, 0.2);
+    border-color: #4CAF50;
+    color: #4CAF50;
+}
+
+.invite-tab-content {
+    display: none;
+}
+
+.invite-tab-content.active {
+    display: block;
+}
+
+.invite-recipient-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.02);
+}
+
+.invite-recipient-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.invite-recipient-item:last-child {
+    border-bottom: none;
+}
+
+.invite-recipient-item:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+.invite-recipient-item.selected {
+    background: rgba(76, 175, 80, 0.1);
+}
+
+.invite-recipient-item.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.invite-recipient-check {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.invite-recipient-item.selected .invite-recipient-check {
+    background: #4CAF50;
+    border-color: #4CAF50;
+    color: #fff;
+}
+
+.invite-recipient-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.invite-recipient-name {
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 2px;
+}
+
+.invite-recipient-channels {
+    display: flex;
+    gap: 6px;
+}
+
+.text-blast-edit-btn {
+    background: rgba(255,255,255,0.1);
+    border: none;
+    border-radius: 6px;
+    padding: 6px 8px;
+    cursor: pointer;
+    color: #888;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.text-blast-edit-btn:hover {
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+}
+
+.text-blast-add-phone-btn {
+    background: rgba(76, 175, 80, 0.2);
+    border: 1px solid rgba(76, 175, 80, 0.4);
+    border-radius: 6px;
+    padding: 6px 12px;
+    cursor: pointer;
+    color: #4CAF50;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.text-blast-add-phone-btn:hover {
+    background: rgba(76, 175, 80, 0.3);
+    border-color: #4CAF50;
+}
+
+.channel-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.channel-badge.email {
+    background: rgba(74, 144, 226, 0.2);
+    color: #4a90e2;
+}
+
+.channel-badge.sms {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4CAF50;
+}
+
+.channel-badge.none {
+    background: rgba(255,255,255,0.1);
+    color: #666;
+}
+
+.invite-contacts-search {
+    margin-bottom: 12px;
+}
+
+.invite-contacts-search input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+    color: #e8e8e8;
+    font-size: 14px;
+}
+
+.invite-manual-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.invite-manual-form .invite-input {
+    flex: 1;
+    min-width: 100px;
+}
+
+.invite-input {
+    padding: 10px 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+    color: #e8e8e8;
+    font-size: 14px;
+}
+
+.invite-textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.03);
+    color: #e8e8e8;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.invite-selected-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.invite-selected-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: #888;
+}
+
+.invite-selected-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.invite-selected-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    background: rgba(76, 175, 80, 0.2);
+    border-radius: 16px;
+    font-size: 13px;
+    color: #4CAF50;
+}
+
+.invite-selected-chip .chip-remove {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    opacity: 0.7;
+    padding: 0;
+    display: flex;
+}
+
+.invite-selected-chip .chip-remove:hover {
+    opacity: 1;
+}
+
+.invite-selected-empty {
+    font-size: 13px;
+    color: #666;
+    font-style: italic;
+}
+
+.invite-delivery-options {
+    display: flex;
+    gap: 24px;
+}
+
+.invite-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    color: #e8e8e8;
+    font-size: 14px;
+}
+
+.invite-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #4CAF50;
+}
+
+.channel-count {
+    font-size: 12px;
+    color: #666;
+}
+
+.invite-char-count {
+    text-align: right;
+    font-size: 12px;
+    color: #666;
+    margin-top: 4px;
+}
+
+.invite-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.invite-preview-card {
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    padding: 14px;
+    border-left: 3px solid;
+}
+
+.invite-preview-card.sms {
+    border-left-color: #4CAF50;
+}
+
+.invite-preview-card.email {
+    border-left-color: #4a90e2;
+}
+
+.invite-preview-card .preview-header {
+    font-weight: 500;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.invite-preview-card .preview-icon {
+    font-size: 14px;
+}
+
+.invite-preview-card .preview-subject {
+    font-size: 12px;
+    color: #888;
+}
+
+.invite-preview-card .preview-body {
+    font-size: 13px;
+    color: #aaa;
+    white-space: pre-wrap;
+}
+
+.invite-preview-empty {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+    font-size: 13px;
+}
+
+.invite-empty-state {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+    font-size: 13px;
+}
+
+.invite-modal-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.invite-modal-actions .btn {
+    flex: 1;
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    color: #4a90e2;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 0;
+}
+
+.btn-link:hover {
+    text-decoration: underline;
+}
+
+.btn-full {
+    width: 100%;
+    margin: 16px 0;
+}
+
+.btn-small {
+    padding: 8px 16px;
+    font-size: 13px;
 }
