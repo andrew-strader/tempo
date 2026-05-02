@@ -425,10 +425,6 @@ window.addEventListener('popstate', function(event) {
     } else if (path.match(/^\/musician\/([a-zA-Z0-9]+)$/)) {
         const musicianId = path.split('/')[2];
         viewMusicianProfile(musicianId);
-    } else if (path === '/privacy') {
-        showPrivacy();
-    } else if (path === '/terms') {
-        showTerms();
     } else if (path.match(/^\/band\/([a-zA-Z0-9]+)$/)) {
         const bandId = path.split('/')[2];
         if (window.currentUser) showBandDetail(bandId);
@@ -491,40 +487,6 @@ function showHelp() {
     document.getElementById('screenHelp').classList.add('active');
 }
 window.showHelp = showHelp;
-
-function goToPrivacy() {
-    toggleMenu();
-    showPrivacy();
-}
-window.goToPrivacy = goToPrivacy;
-
-function showPrivacy() {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById('screenPrivacy').classList.add('active');
-}
-window.showPrivacy = showPrivacy;
-
-function goBackFromPrivacy() {
-    showHomeScreen();
-}
-window.goBackFromPrivacy = goBackFromPrivacy;
-
-function goToTerms() {
-    toggleMenu();
-    showTerms();
-}
-window.goToTerms = goToTerms;
-
-function showTerms() {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById('screenTerms').classList.add('active');
-}
-window.showTerms = showTerms;
-
-function goBackFromTerms() {
-    showHomeScreen();
-}
-window.goBackFromTerms = goBackFromTerms;
 
 async function signInFromMenu() {
     toggleMenu();
@@ -2893,12 +2855,6 @@ const bandInviteId = pathMatch ? pathMatch[1] : null;
 const bandDetailMatch = window.location.pathname.match(/^\/band\/([a-zA-Z0-9]+)$/);
 const bandDetailId = bandDetailMatch ? bandDetailMatch[1] : null;
 
-// Check for /privacy path
-const isPrivacyPage = window.location.pathname === '/privacy';
-
-// Check for /terms path
-const isTermsPage = window.location.pathname === '/terms';
-
 // Check for /bands path
 const isBandsPage = window.location.pathname === '/bands';
 
@@ -2932,13 +2888,7 @@ function hideFeedScreen() {
 }
 
 // Route to appropriate view
-if (isPrivacyPage) {
-    hideFeedScreen();
-    showPrivacy();
-} else if (isTermsPage) {
-    hideFeedScreen();
-    showTerms();
-} else if (isBandsPage) {
+if (isBandsPage) {
     // Will be handled after auth
     window.pendingShowBands = true;
 } else if (isProfilePage) {

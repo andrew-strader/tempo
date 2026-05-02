@@ -351,12 +351,12 @@
             <span class="menu-item-text">Help</span>
         </div>
 
-        <div class="menu-item" onclick="goToPrivacy()">
+        <div class="menu-item" onclick="window.location.href='/privacy'">
             <span class="menu-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></span>
             <span class="menu-item-text">Privacy Policy</span>
         </div>
 
-        <div class="menu-item" onclick="goToTerms()">
+        <div class="menu-item" onclick="window.location.href='/terms'">
             <span class="menu-item-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg></span>
             <span class="menu-item-text">Terms of Service</span>
         </div>
@@ -874,130 +874,6 @@
 
 
 
-        <!-- Screen: Privacy Policy -->
-        <div class="screen" id="screenPrivacy">
-            <div class="logo"><img src="/tempo-logo.svg" alt="Tempo" class="logo-img"></div>
-            <p class="tagline">Privacy Policy</p>
-            
-            <div class="help-content">
-                <div class="help-section">
-                    <p><strong>Last updated:</strong> December 27, 2025</p>
-                    
-                    <h2>What Tempo Does</h2>
-                    <p>Tempo is a band coordination tool that helps musicians schedule rehearsals and manage gigs. We help band leaders find times that work for everyone by checking when band members are free.</p>
-                    
-                    <h2>Information We Collect</h2>
-                    <p><strong>Account Information:</strong> When you sign in with Google, we receive your name, email address, and profile photo to identify you within the app.</p>
-                    <p><strong>Profile Information:</strong> You may optionally provide your location, bio, instruments you play, and a profile photo.</p>
-                    <p><strong>Calendar Data:</strong> If you choose to connect your Google Calendar, we access your calendar's free/busy information to help find rehearsal times. We do NOT read, store, or access the details of your calendar events—only whether time slots are free or busy.</p>
-                    <p><strong>Band & Gig Data:</strong> Information about bands you create or join, gigs, rehearsal times, and your availability responses.</p>
-                    
-                    <h2>How We Use Your Information</h2>
-                    <p>We use your information solely to provide Tempo's features:</p>
-                    <ol>
-                        <li>Display your profile to band members and leaders</li>
-                        <li>Show your free/busy times to help schedule rehearsals</li>
-                        <li>Send you notifications about gigs and rehearsals</li>
-                        <li>Enable band leaders to find available musicians</li>
-                    </ol>
-                    
-                    <h2>Google Calendar Access</h2>
-                    <p>Tempo uses Google Calendar's "readonly" permission to check your availability across all your calendars. This allows us to:</p>
-                    <ol>
-                        <li>See which time slots you're busy (without seeing event details)</li>
-                        <li>Combine availability across multiple calendars (personal, work, etc.)</li>
-                        <li>Help band leaders find times when all members are free</li>
-                    </ol>
-                    <p><strong>We do NOT:</strong></p>
-                    <ol>
-                        <li>Read the titles, descriptions, or attendees of your events</li>
-                        <li>Modify or create events on your calendar</li>
-                        <li>Share your calendar data with third parties</li>
-                        <li>Store your calendar events</li>
-                    </ol>
-                    <p>You can disconnect your calendar at any time from your profile settings.</p>
-                    
-                    <h2>Data Storage & Security</h2>
-                    <p>Your data is stored securely using Google Firebase. Calendar access tokens are stored in a secure, separate collection and are only used to check availability when a band leader requests it.</p>
-                    
-                    <h2>Data Sharing</h2>
-                    <p>We do not sell, rent, or share your personal information with third parties. Your free/busy information is only visible to leaders of bands you've joined.</p>
-                    
-                    <h2>Your Rights</h2>
-                    <p>You can:</p>
-                    <ol>
-                        <li>Disconnect your Google Calendar at any time</li>
-                        <li>Delete your account by contacting us</li>
-                        <li>Request a copy of your data</li>
-                    </ol>
-                    
-                    <h2>Contact</h2>
-                    <p>Questions about this privacy policy? Contact us at <a href="/cdn-cgi/l/email-protection#badbc9cec8dbdedfc88b88faddd7dbd3d694d9d5d7" style="color: #4a9eff;"><span class="__cf_email__" data-cfemail="aecfdddadccfcacbdc9f9ceec9c3cfc7c280cdc1c3">[email&#160;protected]</span></a></p>
-                </div>
-            </div>
-            
-            <button class="btn btn-secondary" onclick="goBackFromPrivacy()" style="margin-top: 20px;">Back</button>
-        </div>
-        
-        <!-- Screen: Terms of Service -->
-        <div class="screen" id="screenTerms">
-            <div class="logo"><img src="/tempo-logo.svg" alt="Tempo" class="logo-img"></div>
-            <p class="tagline">Terms of Service</p>
-            
-            <div class="help-content">
-                <div class="help-section">
-                    <p><strong>Last updated:</strong> December 27, 2025</p>
-                    
-                    <h2>Welcome to Tempo</h2>
-                    <p>These Terms of Service ("Terms") govern your use of Tempo, a band coordination and rehearsal scheduling application. By using Tempo, you agree to these Terms.</p>
-                    
-                    <h2>What Tempo Provides</h2>
-                    <p>Tempo is a free tool that helps musicians:</p>
-                    <ol>
-                        <li>Create and manage bands</li>
-                        <li>Schedule gigs and rehearsals</li>
-                        <li>Coordinate availability with band members</li>
-                        <li>Find other musicians</li>
-                    </ol>
-                    
-                    <h2>Your Account</h2>
-                    <p>You sign in to Tempo using your Google account. You are responsible for maintaining the security of your account and for all activities that occur under it.</p>
-                    
-                    <h2>Acceptable Use</h2>
-                    <p>You agree to use Tempo only for its intended purpose of band coordination. You agree not to:</p>
-                    <ol>
-                        <li>Use the service for any illegal purpose</li>
-                        <li>Harass or spam other users</li>
-                        <li>Attempt to access other users' accounts or data</li>
-                        <li>Interfere with or disrupt the service</li>
-                        <li>Use automated systems to access the service without permission</li>
-                    </ol>
-                    
-                    <h2>Your Content</h2>
-                    <p>You retain ownership of any content you create on Tempo (band names, gig details, profile information). By posting content, you grant Tempo permission to display it to other users as part of the service's functionality.</p>
-                    
-                    <h2>Calendar Access</h2>
-                    <p>If you connect your Google Calendar, you authorize Tempo to access your free/busy information to help coordinate rehearsal times. You can revoke this access at any time. See our <a href="/privacy" style="color: #4a9eff;">Privacy Policy</a> for details.</p>
-                    
-                    <h2>Service Availability</h2>
-                    <p>Tempo is provided "as is" without warranties of any kind. We strive to keep the service running smoothly, but we don't guarantee uninterrupted access. We may modify or discontinue features at any time.</p>
-                    
-                    <h2>Limitation of Liability</h2>
-                    <p>Tempo is a free service provided for convenience. We are not liable for any damages arising from your use of the service, including missed rehearsals, scheduling conflicts, or any other issues.</p>
-                    
-                    <h2>Changes to Terms</h2>
-                    <p>We may update these Terms from time to time. Continued use of Tempo after changes constitutes acceptance of the new Terms.</p>
-                    
-                    <h2>Termination</h2>
-                    <p>You may stop using Tempo at any time. We reserve the right to suspend or terminate accounts that violate these Terms.</p>
-                    
-                    <h2>Contact</h2>
-                    <p>Questions about these terms? Contact us at <a href="/cdn-cgi/l/email-protection#3554464147545150470407755258545c591b565a58" style="color: #4a9eff;"><span class="__cf_email__" data-cfemail="4a2b393e382b2e2f387b780a2d272b232664292527">[email&#160;protected]</span></a></p>
-                </div>
-            </div>
-            
-            <button class="btn btn-secondary" onclick="goBackFromTerms()" style="margin-top: 20px;">Back</button>
-        </div>
         
         <!-- Screen: Help Center -->
         <div class="screen" id="screenHelp">
