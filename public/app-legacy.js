@@ -1325,28 +1325,6 @@ async function confirmRehearsals() {
             });
         });
         
-        // Create notification for each responder who has an email stored
-        // For signed-in users, we can look up their email
-        // For now, we'll create a batch notification that the Cloud Function can process
-        try {
-            await window.addDoc(window.collection(window.db, "notifications"), {
-                type: 'rehearsals_confirmed',
-                gigId: window.currentGigId,
-                bandName: gig.bandName,
-                venue: gig.venue,
-                rehearsalLocation: gig.rehearsalLocation,
-                confirmedTimes: confirmedTimes,
-                responderIds: gig.responderIds || [],
-                createdAt: window.serverTimestamp(),
-                sent: false,
-                // We'll need to send to multiple people - the Cloud Function will handle this
-                notifyAll: true
-            });
-            console.log("Confirmation notifications queued");
-        } catch (notifError) {
-            console.error("Error queuing notifications:", notifError);
-        }
-        
         // Reload dashboard
         await loadDashboard(window.currentGigId);
         
@@ -2230,28 +2208,6 @@ async function submitAvailability() {
         
         // Include current submission
         uniqueResponders.add(name.toLowerCase());
-        
-        const expectedResponders = gig.expectedResponders || 4;
-        if (uniqueResponders.size >= expectedResponders && gig.creatorEmail) {
-            // Trigger notification by writing to a notifications collection
-            // The Cloud Function will pick this up and send email
-            try {
-                await window.addDoc(window.collection(window.db, "notifications"), {
-                    type: 'all_responded',
-                    gigId: window.currentGigId,
-                    recipientEmail: gig.creatorEmail,
-                    recipientName: gig.creatorName || 'Band Leader',
-                    bandName: gig.bandName,
-                    venue: gig.venue,
-                    responderCount: uniqueResponders.size,
-                    createdAt: window.serverTimestamp(),
-                    sent: false
-                });
-                console.log("Notification queued for band leader");
-            } catch (notifError) {
-                console.error("Error queuing notification:", notifError);
-            }
-        }
         
         // Update summary
         document.getElementById('summaryName').textContent = name;
