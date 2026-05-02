@@ -109,8 +109,13 @@ window.showWelcomeScreen = function() {
     document.body.classList.add('hide-tab-bar');
     const tabBar = document.getElementById('bottomTabBar');
     if (tabBar) tabBar.style.display = 'none';
+    // Hide header via class so showGlobalHeader can re-add it later
     const header = document.getElementById('globalHeader');
-    if (header) header.style.display = 'none';
+    if (header) {
+        header.classList.remove('visible');
+        header.style.display = '';
+    }
+    document.body.classList.remove('has-header');
 };
 
 // Show phone entry screen
