@@ -3225,21 +3225,9 @@ function switchTab(tab) {
 }
 window.switchTab = switchTab;
 
-// Home screen (placeholder — schedule home replaces this in a later cut)
+// Home screen — shows upcoming events + your bands
 function showFeedHome() {
-    document.querySelectorAll('.screen').forEach(s => {
-        s.classList.remove('active');
-        s.style.display = '';
-    });
-    const screenFeed = document.getElementById('screenFeed');
-    if (screenFeed) {
-        screenFeed.classList.add('active');
-        screenFeed.style.display = 'block';
-    }
-    showGlobalHeader();
-    document.body.classList.remove('hide-tab-bar');
-    const tabBar = document.getElementById('bottomTabBar');
-    if (tabBar) tabBar.style.display = 'flex';
+    showBandsScreen();
     window.history.replaceState({}, '', '/');
 }
 window.showFeedHome = showFeedHome;
