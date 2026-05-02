@@ -6,8 +6,7 @@
     "allowNavigation": [
       "tempocal.app",
       "*.firebaseapp.com",
-      "*.googleapis.com",
-      "accounts.google.com"
+      "*.googleapis.com"
     ]
   },
   "ios": {
@@ -16,8 +15,8 @@
   },
   "plugins": {
     "FirebaseAuthentication": {
-      "skipNativeAuth": true,
-      "providers": ["google.com"]
+      "skipNativeAuth": false,
+      "providers": ["phone"]
     }
   }
 }
