@@ -432,12 +432,37 @@
     </div>
 
     <div class="container has-tab-bar">
-        <!-- Screen: Home (placeholder — schedule home replaces this in a later cut) -->
-        <div class="screen active" id="screenFeed">
-            <div class="home-placeholder">
-                <h2>Tempo</h2>
-                <p>Coming soon: your bands and upcoming events.</p>
-            </div>
+        <!-- Screen: Welcome (logged-out gate) -->
+        <div class="screen active" id="screenWelcome" style="text-align: center; padding: 60px 24px 40px;">
+            <div class="logo" style="margin-bottom: 24px;"><img src="/tempo-logo.svg" alt="Tempo" class="logo-img" style="max-width: 180px;"></div>
+            <p class="tagline" style="font-size: 18px; color: #aaa; margin-bottom: 48px;">Coordinate gigs and rehearsals with your bands.</p>
+            <button class="btn btn-primary" style="width: 100%; max-width: 320px; padding: 16px;" onclick="showPhoneEntry()">Continue with phone number</button>
+            <p style="font-size: 12px; color: #666; margin-top: 32px; max-width: 320px; margin-left: auto; margin-right: auto;">By continuing you agree to our <a href="/terms" style="color: #888;">Terms</a> and <a href="/privacy" style="color: #888;">Privacy Policy</a>.</p>
+        </div>
+
+        <!-- Screen: Phone number entry -->
+        <div class="screen" id="screenPhoneEntry" style="padding: 40px 24px;">
+            <button class="btn-link" onclick="showWelcomeScreen()" style="margin-bottom: 24px; color: #888; background: none; border: none; cursor: pointer;">← Back</button>
+            <h2 style="margin-bottom: 8px;">What's your phone number?</h2>
+            <p style="color: #888; margin-bottom: 24px;">We'll text you a code to verify.</p>
+            <input type="tel" id="phoneAuthInput" placeholder="(555) 123-4567" oninput="formatPhoneInput(this)" style="width: 100%; padding: 14px; font-size: 18px; margin-bottom: 16px;">
+            <button class="btn btn-primary" id="sendCodeBtn" onclick="sendPhoneCode()" style="width: 100%; padding: 14px;">Send code</button>
+            <div id="recaptcha-container"></div>
+        </div>
+
+        <!-- Screen: Phone code verification -->
+        <div class="screen" id="screenPhoneVerify" style="padding: 40px 24px;">
+            <button class="btn-link" onclick="resendPhoneCode()" style="margin-bottom: 24px; color: #888; background: none; border: none; cursor: pointer;">← Back</button>
+            <h2 style="margin-bottom: 8px;">Enter the code</h2>
+            <p style="color: #888; margin-bottom: 24px;">Sent to <span id="verifyPhoneDisplay"></span></p>
+            <input type="text" id="codeAuthInput" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="000000" style="width: 100%; padding: 14px; font-size: 24px; text-align: center; letter-spacing: 8px; margin-bottom: 16px;">
+            <button class="btn btn-primary" id="verifyCodeBtn" onclick="verifyPhoneCode()" style="width: 100%; padding: 14px;">Verify</button>
+            <button class="btn-link" onclick="resendPhoneCode()" style="display: block; margin: 16px auto 0; color: #888; background: none; border: none; cursor: pointer; text-align: center;">Didn't get a code? Send again</button>
+        </div>
+
+        <!-- Screen: Home placeholder (kept as fallback target for popstate routing) -->
+        <div class="screen" id="screenFeed">
+            <div class="home-placeholder"></div>
         </div>
 
         <!-- Screen: Bands (combined bands + schedule) -->

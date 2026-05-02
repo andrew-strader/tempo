@@ -2,7 +2,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import { getFirestore, connectFirestoreEmulator, collection, addDoc, doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, query, where, serverTimestamp, onSnapshot, orderBy, increment, limit as firestoreLimit } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-storage.js";
-import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+import { getAuth, signInWithPhoneNumber, RecaptchaVerifier, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
 import { getFunctions, httpsCallable, connectFunctionsEmulator } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-functions.js";
 
 // Your Firebase configuration
@@ -22,7 +22,8 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 const auth = getAuth(app);
 const functions = getFunctions(app, 'us-central1');
-const googleProvider = new GoogleAuthProvider();
+// Phone auth state
+let phoneConfirmationResult = null;
 
 // Connect to emulators when running locally
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -86,74 +87,130 @@ function isCapacitorNative() {
     return window.Capacitor && window.Capacitor.isNativePlatform();
 }
 
-// Google Sign In
-window.signInWithGoogle = async function() {
-    try {
-        if (isCapacitorNative()) {
-            // Use native Google Sign-In via Capacitor Firebase Auth plugin
-            // skipNativeAuth is true, so the plugin only does native Google sign-in
-            // and returns a credential we pass to the Firebase JS SDK
-            const FirebaseAuthentication = window.Capacitor.Plugins.FirebaseAuthentication;
-            const nativeResult = await FirebaseAuthentication.signInWithGoogle();
-            const idToken = nativeResult.credential?.idToken;
-            if (!idToken) {
-                throw new Error('No ID token returned from native Google Sign-In');
-            }
-            const credential = GoogleAuthProvider.credential(idToken);
-            const result = await signInWithCredential(auth, credential);
-            window.currentUser = result.user;
-            console.log("Signed in via native:", result.user.email);
-            return result.user;
-        } else if (isMobile()) {
-            // Save pending actions to localStorage before redirect
-            if (window.pendingBandJoin) {
-                localStorage.setItem('pendingBandJoin', window.pendingBandJoin);
-            }
-            if (window.pendingLeaderAccept) {
-                localStorage.setItem('pendingLeaderAccept', window.pendingLeaderAccept);
-            }
-            if (window.pendingBandInviteId) {
-                localStorage.setItem('pendingBandInviteId', window.pendingBandInviteId);
-            }
+// Phone auth — public paths that should be reachable without sign-in
+function isPublicPath() {
+    const path = window.location.pathname;
+    return path.startsWith('/b/') || path.startsWith('/e/') ||
+           path === '/privacy' || path === '/terms' ||
+           path === '/sms' || path === '/sms-signup';
+}
 
-            // Use redirect on mobile browser (popups don't work well)
-            await signInWithRedirect(auth, googleProvider);
-            return null; // Will return after redirect
-        } else {
-            const result = await signInWithPopup(auth, googleProvider);
-            window.currentUser = result.user;
-            console.log("Signed in:", result.user.email);
-            return result.user;
-        }
-    } catch (error) {
-        console.error("Sign in error:", error);
-        alert("Sign in failed: " + error.message);
-        return null;
+// Show the welcome / sign-in gate
+window.showWelcomeScreen = function() {
+    document.querySelectorAll('.screen').forEach(s => {
+        s.classList.remove('active');
+        s.style.display = '';
+    });
+    const welcome = document.getElementById('screenWelcome');
+    if (welcome) {
+        welcome.classList.add('active');
+        welcome.style.display = 'block';
+    }
+    document.body.classList.add('hide-tab-bar');
+    const tabBar = document.getElementById('bottomTabBar');
+    if (tabBar) tabBar.style.display = 'none';
+    const header = document.getElementById('globalHeader');
+    if (header) header.style.display = 'none';
+};
+
+// Show phone entry screen
+window.showPhoneEntry = function() {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const entry = document.getElementById('screenPhoneEntry');
+    if (entry) entry.classList.add('active');
+    const input = document.getElementById('phoneAuthInput');
+    if (input) {
+        input.value = '';
+        setTimeout(() => input.focus(), 100);
     }
 };
 
-// Handle redirect result (for mobile sign-in)
-getRedirectResult(auth).then((result) => {
-    if (result && result.user) {
+// Send SMS verification code
+window.sendPhoneCode = async function() {
+    const raw = document.getElementById('phoneAuthInput').value.trim();
+    const phone = normalizePhoneNumber(raw);
+    if (!phone) {
+        alert('Please enter a valid US phone number');
+        return;
+    }
+
+    const btn = document.getElementById('sendCodeBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+
+    try {
+        if (!window.recaptchaVerifier) {
+            window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+                size: 'invisible'
+            });
+        }
+        phoneConfirmationResult = await signInWithPhoneNumber(auth, phone, window.recaptchaVerifier);
+
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById('screenPhoneVerify').classList.add('active');
+        document.getElementById('verifyPhoneDisplay').textContent = formatPhoneDisplay(phone);
+        const codeInput = document.getElementById('codeAuthInput');
+        codeInput.value = '';
+        setTimeout(() => codeInput.focus(), 100);
+    } catch (error) {
+        console.error('Send code error:', error);
+        alert('Could not send code: ' + (error.message || error.code));
+        if (window.recaptchaVerifier) {
+            try { window.recaptchaVerifier.clear(); } catch (e) {}
+            window.recaptchaVerifier = null;
+        }
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send code';
+    }
+};
+
+// Verify the SMS code
+window.verifyPhoneCode = async function() {
+    const code = document.getElementById('codeAuthInput').value.trim();
+    if (!/^\d{6}$/.test(code)) {
+        alert('Enter the 6-digit code');
+        return;
+    }
+    if (!phoneConfirmationResult) {
+        alert('Session expired. Please try again.');
+        showWelcomeScreen();
+        return;
+    }
+
+    const btn = document.getElementById('verifyCodeBtn');
+    btn.disabled = true;
+    btn.textContent = 'Verifying...';
+
+    try {
+        const result = await phoneConfirmationResult.confirm(code);
         window.currentUser = result.user;
-        console.log("Signed in via redirect:", result.user.email);
+        phoneConfirmationResult = null;
+        // onAuthStateChanged handles the rest (profile check, navigation)
+    } catch (error) {
+        console.error('Verify error:', error);
+        alert('Invalid code. Try again.');
+        btn.disabled = false;
+        btn.textContent = 'Verify';
     }
-}).catch((error) => {
-    if (error.code !== 'auth/popup-closed-by-user') {
-        console.error("Redirect sign in error:", error);
+};
+
+// Resend code (returns to phone entry to start over)
+window.resendPhoneCode = function() {
+    phoneConfirmationResult = null;
+    if (window.recaptchaVerifier) {
+        try { window.recaptchaVerifier.clear(); } catch (e) {}
+        window.recaptchaVerifier = null;
     }
-});
+    showPhoneEntry();
+};
 
 // Sign Out
 window.signOutUser = async function() {
     try {
-        if (isCapacitorNative()) {
-            const FirebaseAuthentication = window.Capacitor.Plugins.FirebaseAuthentication;
-            await FirebaseAuthentication.signOut();
-        }
         await signOut(auth);
         window.currentUser = null;
-        showHomeScreen();
+        showWelcomeScreen();
     } catch (error) {
         console.error("Sign out error:", error);
     }
@@ -162,29 +219,29 @@ window.signOutUser = async function() {
 // Auth state listener
 onAuthStateChanged(auth, async (user) => {
     window.currentUser = user;
-    
-    // Check for profile when user is logged in (do this BEFORE updating UI)
+
     if (user) {
         const profile = await checkUserProfile(user);
         window.currentUserProfile = profile;
+
+        // First-time signup → profile setup; signed in on welcome/phone screens → home
+        if (!profile) {
+            showProfileSetup();
+        } else {
+            const onAuthScreen =
+                document.getElementById('screenWelcome')?.classList.contains('active') ||
+                document.getElementById('screenPhoneEntry')?.classList.contains('active') ||
+                document.getElementById('screenPhoneVerify')?.classList.contains('active');
+            if (onAuthScreen) showHomeScreen();
+        }
     } else {
         window.currentUserProfile = null;
-        
-        // Prompt sign in if there are pending band actions
-        if (window.pendingBandJoin) {
-            setTimeout(() => {
-                alert('Please sign in to join the band');
-                signInWithGoogleAndCheckProfile();
-            }, 300);
-        } else if (window.pendingLeaderAccept) {
-            setTimeout(() => {
-                alert('Please sign in to accept the band leader invitation');
-                signInWithGoogleAndCheckProfile();
-            }, 300);
+        // Logged out — gate all non-public paths behind welcome screen
+        if (!isPublicPath()) {
+            showWelcomeScreen();
         }
     }
-    
-    // Now update UI with profile data available
+
     updateAuthUI(user);
     if (window.updateMenuAuth) updateMenuAuth();
 
@@ -301,20 +358,13 @@ onAuthStateChanged(auth, async (user) => {
     }
 });
 
-// Modified sign in to check for profile
-window.signInWithGoogleAndCheckProfile = async function() {
-    const user = await window.signInWithGoogle();
-    // On mobile, redirect is used and this returns null
-    // The auth state listener will handle things when user returns
-    if (user) {
-        const profile = await checkUserProfile(user);
-        if (!profile) {
-            // New user, show profile setup
-            showProfileSetup();
-            return user;
-        }
-    }
-    return user;
+// Backward-compat shims — old call sites get routed to the welcome screen
+window.signInWithGoogleAndCheckProfile = function() {
+    showWelcomeScreen();
+};
+window.signInWithGoogle = async function() {
+    showWelcomeScreen();
+    return null;
 };
 
 function updateAuthUI(user) {
@@ -363,14 +413,7 @@ window.addEventListener('popstate', function(event) {
     const path = window.location.pathname;
     
     if (path === '/' || path === '') {
-        // Clean up any active chat listener
-        if (window.unsubscribeFromMessages) unsubscribeFromMessages();
-        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        const screenFeed = document.getElementById('screenFeed');
-        if (screenFeed) screenFeed.classList.add('active');
-        // Restore header and tab bar
-        document.getElementById('globalHeader').style.display = '';
-        document.body.classList.remove('hide-tab-bar');
+        if (window.currentUser) showFeedHome(); else showWelcomeScreen();
     } else if (path === '/bands') {
         if (window.currentUser) showMyBands();
     } else if (path === '/gigs' || path === '/schedule') {
