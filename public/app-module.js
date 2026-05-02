@@ -25,8 +25,9 @@ const functions = getFunctions(app, 'us-central1');
 // Phone auth state
 let phoneConfirmationResult = null;
 
-// Connect to emulators when running locally
-const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+// Connect to emulators only on a real local dev server (not Capacitor's capacitor://localhost)
+const isLocalhost = !window.Capacitor?.isNativePlatform() &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 if (isLocalhost) {
     console.log('🔧 Running locally - connecting to Firebase emulators');
     connectFirestoreEmulator(db, '127.0.0.1', 8080);
