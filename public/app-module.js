@@ -614,14 +614,20 @@ function showProfileSetup() {
     window.pendingProfilePhotos = [];
     window.photosToDelete = [];
 
-    // Pre-fill with Google account info
-    if (window.currentUser) {
-        document.getElementById('profileName').value = window.currentUser.displayName || '';
+    // Pre-fill phone from verified auth (locked — it's their sign-in identity)
+    const phoneField = document.getElementById('profilePhone');
+    if (phoneField && window.currentUser?.phoneNumber) {
+        phoneField.value = formatPhoneDisplay(window.currentUser.phoneNumber);
+        phoneField.readOnly = true;
+        phoneField.style.opacity = '0.7';
+        phoneField.style.cursor = 'not-allowed';
+        // Phone is always present now — show SMS consent immediately
+        updateSmsConsentVisibility('profile');
     }
 
     // Initialize photo grid (empty for new profiles)
     updatePhotoManagementUI('setup');
-    
+
     // Check if calendar is already connected
     const setupCalStatus = document.getElementById('setupCalendarStatus');
     if (setupCalStatus && window.currentUserProfile?.calendarConnected) {
@@ -975,10 +981,14 @@ async function showEditProfile() {
         document.getElementById('editProfileInfluences').value = profile.influences || '';
         document.getElementById('editProfileWorkingOn').value = profile.workingOn || '';
 
-        // Load phone number
+        // Load phone number — locked since it's the user's sign-in identity
         const phoneField = document.getElementById('editProfilePhone');
         if (phoneField) {
-            phoneField.value = profile.phone ? formatPhoneDisplay(profile.phone) : '';
+            const phone = window.currentUser?.phoneNumber || profile.phone || '';
+            phoneField.value = phone ? formatPhoneDisplay(phone) : '';
+            phoneField.readOnly = true;
+            phoneField.style.opacity = '0.7';
+            phoneField.style.cursor = 'not-allowed';
         }
 
         // If the user already has a phone on file with a recorded consent, pre-check the

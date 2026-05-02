@@ -558,8 +558,8 @@
                     <div class="location-dropdown" id="profileLocationDropdown"></div>
                 </div>
 
-                <label>Phone Number <span style="color: #666; font-weight: normal;">(optional, for band notifications)</span></label>
-                <input type="tel" id="profilePhone" placeholder="(555) 123-4567" oninput="formatPhoneInput(this); updateSmsConsentVisibility('profile')">
+                <label>Phone Number <span style="color: #666; font-weight: normal;">(your sign-in number)</span></label>
+                <input type="tel" id="profilePhone" placeholder="(555) 123-4567" readonly>
                 <div id="profileSmsConsentBlock" class="sms-consent-block" style="display: none; margin-top: 8px; padding: 12px 14px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;">
                     <label style="display: flex; gap: 10px; align-items: flex-start; cursor: pointer; margin: 0;">
                         <input type="checkbox" id="profileSmsConsent" style="margin-top: 3px; width: 16px; height: 16px; accent-color: #4CAF50; flex-shrink: 0;">
@@ -679,8 +679,8 @@
                     <div class="location-dropdown" id="editProfileLocationDropdown"></div>
                 </div>
 
-                <label>Phone Number <span style="color: #666; font-weight: normal;">(for band notifications)</span></label>
-                <input type="tel" id="editProfilePhone" placeholder="(555) 123-4567" oninput="formatPhoneInput(this); updateSmsConsentVisibility('editProfile')">
+                <label>Phone Number <span style="color: #666; font-weight: normal;">(your sign-in number)</span></label>
+                <input type="tel" id="editProfilePhone" placeholder="(555) 123-4567" readonly>
                 <div id="editProfileSmsConsentBlock" class="sms-consent-block" style="display: none; margin-top: 8px; padding: 12px 14px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;">
                     <label style="display: flex; gap: 10px; align-items: flex-start; cursor: pointer; margin: 0;">
                         <input type="checkbox" id="editProfileSmsConsent" style="margin-top: 3px; width: 16px; height: 16px; accent-color: #4CAF50; flex-shrink: 0;">
