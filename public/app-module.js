@@ -3938,7 +3938,6 @@ window.renderSocialLinks = renderSocialLinks;
 // Current rehearsal state
 window.currentRehearsalInviteMode = 'band';
 window.currentRehearsalInvitees = [];
-window.currentRehearsalSetlist = [];
 window.currentScheduleFilter = 'all';
 
 // Show Create Rehearsal screen
@@ -3963,7 +3962,6 @@ async function showCreateRehearsal() {
     // Reset form state
     window.currentRehearsalInviteMode = 'band';
     window.currentRehearsalInvitees = [];
-    window.currentRehearsalSetlist = [];
 
     // Reset form fields
     document.getElementById('rehearsalName').value = '';
@@ -3972,8 +3970,6 @@ async function showCreateRehearsal() {
     document.getElementById('rehearsalEndTime').value = '';
     document.getElementById('rehearsalLocation').value = '';
     document.getElementById('rehearsalNotes').value = '';
-    document.getElementById('rehearsalRecurring').checked = false;
-    document.getElementById('recurringOptions').style.display = 'none';
 
     // Update invite mode buttons
     setInviteMode('band');
@@ -4223,64 +4219,6 @@ function renderInviteesList() {
     `).join('');
 }
 
-// Toggle recurring options
-function toggleRecurring() {
-    const isRecurring = document.getElementById('rehearsalRecurring').checked;
-    document.getElementById('recurringOptions').style.display = isRecurring ? 'block' : 'none';
-}
-window.toggleRecurring = toggleRecurring;
-
-// Add song to setlist
-function addRehearsalSong() {
-    const titleInput = document.getElementById('songTitle');
-    const durationInput = document.getElementById('songDuration');
-
-    const title = titleInput.value.trim();
-    const duration = durationInput.value.trim();
-
-    if (!title) {
-        alert('Please enter a song title');
-        return;
-    }
-
-    window.currentRehearsalSetlist.push({ title, duration, files: [] });
-    titleInput.value = '';
-    durationInput.value = '';
-    renderRehearsalSetlist();
-}
-window.addRehearsalSong = addRehearsalSong;
-
-// Remove song from setlist
-function removeRehearsalSong(index) {
-    window.currentRehearsalSetlist.splice(index, 1);
-    renderRehearsalSetlist();
-}
-window.removeRehearsalSong = removeRehearsalSong;
-
-// Render setlist
-function renderRehearsalSetlist() {
-    const container = document.getElementById('rehearsalSetlistPreview');
-    if (!container) return;
-
-    if (window.currentRehearsalSetlist.length === 0) {
-        container.innerHTML = '<p style="color: #888; font-size: 14px;">No songs added yet</p>';
-        return;
-    }
-
-    container.innerHTML = window.currentRehearsalSetlist.map((song, index) => `
-        <div class="setlist-song">
-            <div class="setlist-song-number">${index + 1}</div>
-            <div class="setlist-song-info">
-                <div class="setlist-song-title">${song.title}</div>
-                ${song.duration ? `<div class="setlist-song-duration">${song.duration}</div>` : ''}
-            </div>
-            <button class="invitee-remove" onclick="removeRehearsalSong(${index})">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-        </div>
-    `).join('');
-}
-
 // Create rehearsal
 async function createRehearsal() {
     const name = document.getElementById('rehearsalName').value.trim();
@@ -4290,7 +4228,6 @@ async function createRehearsal() {
     const location = document.getElementById('rehearsalLocation').value.trim();
     const notes = document.getElementById('rehearsalNotes').value.trim();
     const linkedGigId = document.getElementById('rehearsalLinkedGig').value;
-    const isRecurring = document.getElementById('rehearsalRecurring').checked;
 
     // Validation
     if (!name) {
@@ -4356,30 +4293,14 @@ async function createRehearsal() {
         creatorId: window.currentUser.uid,
         creatorEmail: window.currentUser.email,
         invitedMembers,
-        setlist: window.currentRehearsalSetlist,
         playlist: [],
         files: [],
-        isRecurring,
-        parentRehearsalId: null,
         createdAt: serverTimestamp()
     };
 
     try {
         // Add to Firestore
         const docRef = await addDoc(collection(db, "rehearsals"), rehearsalData);
-
-        // Handle recurring rehearsals
-        if (isRecurring) {
-            const frequency = document.getElementById('rehearsalFrequency').value;
-            const endDateStr = document.getElementById('rehearsalRecurringEnd').value;
-            if (endDateStr) {
-                const startDate = new Date(date + 'T00:00:00');
-                const endDate = new Date(endDateStr + 'T00:00:00');
-                const dayIncrement = frequency === 'weekly' ? 7 : frequency === 'biweekly' ? 14 : 30;
-                const count = Math.floor((endDate - startDate) / (dayIncrement * 24 * 60 * 60 * 1000)) + 1;
-                await createRecurringRehearsals(docRef.id, rehearsalData, frequency, Math.max(count, 1));
-            }
-        }
 
         // Send email notifications
         await sendRehearsalInviteEmails(docRef.id, rehearsalData);
@@ -4392,33 +4313,6 @@ async function createRehearsal() {
     }
 }
 window.createRehearsal = createRehearsal;
-
-// Create recurring rehearsal instances
-async function createRecurringRehearsals(parentId, baseData, frequency, count) {
-    const startDate = new Date(baseData.date + 'T00:00:00');
-    const dayIncrement = frequency === 'weekly' ? 7 : 14;
-
-    for (let i = 1; i < count; i++) {
-        const newDate = new Date(startDate);
-        newDate.setDate(newDate.getDate() + (dayIncrement * i));
-
-        const recurringData = {
-            ...baseData,
-            date: newDate.toISOString().split('T')[0],
-            parentRehearsalId: parentId,
-            isRecurring: false,
-            createdAt: serverTimestamp()
-        };
-
-        // Reset RSVP statuses for new instance
-        recurringData.invitedMembers = recurringData.invitedMembers.map(m => ({
-            ...m,
-            status: 'pending'
-        }));
-
-        await addDoc(collection(db, "rehearsals"), recurringData);
-    }
-}
 
 // Send email notifications for rehearsal
 async function sendRehearsalInviteEmails(rehearsalId, rehearsalData) {
@@ -4822,28 +4716,6 @@ async function showRehearsalDetail(rehearsalId) {
         // RSVP responses
         renderRsvpResponses(rehearsal);
 
-        // Setlist
-        const setlistEl = document.getElementById('rehearsalDetailSetlist');
-        if (rehearsal.setlist && rehearsal.setlist.length > 0) {
-            let setlistHtml = '<h4>Setlist</h4><div class="setlist-display">';
-            rehearsal.setlist.forEach((song, index) => {
-                setlistHtml += `
-                    <div class="setlist-song">
-                        <div class="setlist-song-number">${index + 1}</div>
-                        <div class="setlist-song-info">
-                            <div class="setlist-song-title">${song.title}</div>
-                            ${song.duration ? `<div class="setlist-song-duration">${song.duration}</div>` : ''}
-                        </div>
-                    </div>
-                `;
-            });
-            setlistHtml += '</div>';
-            setlistEl.innerHTML = setlistHtml;
-            setlistEl.style.display = 'block';
-        } else {
-            setlistEl.style.display = 'none';
-        }
-
         // Show Send Invites section for organizer
         const smsSection = document.getElementById('rehearsalSmsSection');
         if (smsSection && window.currentUser && rehearsal.creatorId === window.currentUser.uid) {
@@ -5174,7 +5046,6 @@ window.showOwnProfile = showOwnProfile;
 
 window.currentEventType = 'show';
 window.currentEventCover = null;
-window.currentEventSetlist = [];
 window.currentEventFiles = [];
 
 // Show unified create event modal
@@ -5191,7 +5062,6 @@ async function showCreateEvent(initialType = 'show') {
     // Reset form state
     window.currentEventType = initialType;
     window.currentEventCover = null;
-    window.currentEventSetlist = [];
     window.currentEventFiles = [];
 
     // Reset form fields
@@ -5206,10 +5076,7 @@ async function showCreateEvent(initialType = 'show') {
     document.getElementById('eventSetLength').value = '';
     document.getElementById('eventTicketLink').value = '';
     document.getElementById('eventEndTime').value = '';
-    document.getElementById('eventRecurring').checked = false;
-    document.getElementById('eventRecurringOptions').style.display = 'none';
     document.getElementById('eventPlaylistUrl').value = '';
-    document.getElementById('eventSetlistItems').innerHTML = '';
     document.getElementById('eventUploadedFiles').innerHTML = '';
 
     // Reset cover image
@@ -5338,48 +5205,6 @@ function setDefaultCover(type) {
     window.currentEventCover = { type: 'gradient', gradient: type };
 }
 window.setDefaultCover = setDefaultCover;
-
-// Toggle recurring options
-function toggleEventRecurring() {
-    const isRecurring = document.getElementById('eventRecurring').checked;
-    document.getElementById('eventRecurringOptions').style.display = isRecurring ? 'block' : 'none';
-}
-window.toggleEventRecurring = toggleEventRecurring;
-
-// Setlist management
-function addEventSong() {
-    const titleInput = document.getElementById('eventNewSongTitle');
-    const durationInput = document.getElementById('eventNewSongDuration');
-    const title = titleInput.value.trim();
-    const duration = durationInput.value.trim();
-
-    if (!title) return;
-
-    window.currentEventSetlist.push({ title, duration: duration || '' });
-    renderEventSetlist();
-
-    titleInput.value = '';
-    durationInput.value = '';
-}
-window.addEventSong = addEventSong;
-
-function renderEventSetlist() {
-    const container = document.getElementById('eventSetlistItems');
-    container.innerHTML = window.currentEventSetlist.map((song, i) => `
-        <div class="setlist-item">
-            <span class="setlist-number">${i + 1}</span>
-            <span class="setlist-title">${song.title}</span>
-            <span class="setlist-duration">${song.duration || '--'}</span>
-            <button class="setlist-remove" onclick="removeEventSong(${i})">×</button>
-        </div>
-    `).join('');
-}
-
-function removeEventSong(index) {
-    window.currentEventSetlist.splice(index, 1);
-    renderEventSetlist();
-}
-window.removeEventSong = removeEventSong;
 
 // File upload handling
 async function handleEventFileSelect(event) {
@@ -5525,7 +5350,6 @@ async function createEvent() {
                 ticketLink: document.getElementById('eventTicketLink').value || '',
                 notes: notes || '',
                 coverImage: coverImage,
-                setlist: window.currentEventSetlist,
                 streamingLink: playlistUrl,
                 files: window.currentEventFiles.map(f => ({ name: f.name, type: f.type, url: f.url })),
                 suggestedTimes: [],
@@ -5549,8 +5373,6 @@ async function createEvent() {
             alert('Show created!');
         } else {
             // Create rehearsal document
-            const isRecurring = document.getElementById('eventRecurring').checked;
-
             const rehearsalData = {
                 name: title,
                 date,
@@ -5565,25 +5387,13 @@ async function createEvent() {
                 creatorEmail: window.currentUser.email,
                 invitedMembers,
                 coverImage: coverImage,
-                setlist: window.currentEventSetlist,
                 playlist: playlistUrl ? [playlistUrl] : [],
                 files: window.currentEventFiles.map(f => ({ name: f.name, type: f.type, url: f.url })),
-                isRecurring,
-                parentRehearsalId: null,
                 createdAt: serverTimestamp(),
                 invites: []
             };
 
             const docRef = await addDoc(collection(db, "rehearsals"), rehearsalData);
-
-            // Handle recurring
-            if (isRecurring) {
-                const frequency = document.getElementById('eventFrequency').value;
-                const endDateStr = document.getElementById('eventRecurringEnd').value;
-                if (endDateStr) {
-                    await createEventRecurringRehearsals(docRef.id, rehearsalData, frequency, endDateStr);
-                }
-            }
 
             // Send notifications
             await sendRehearsalInviteEmails(docRef.id, rehearsalData);
@@ -5602,35 +5412,6 @@ async function createEvent() {
     }
 }
 window.createEvent = createEvent;
-
-// Create recurring rehearsals from unified form
-async function createEventRecurringRehearsals(parentId, baseData, frequency, endDateStr) {
-    const startDate = new Date(baseData.date + 'T00:00:00');
-    const endDate = new Date(endDateStr + 'T00:00:00');
-    const dayIncrement = frequency === 'weekly' ? 7 : frequency === 'biweekly' ? 14 : 30;
-
-    let currentDate = new Date(startDate);
-    currentDate.setDate(currentDate.getDate() + dayIncrement);
-
-    while (currentDate <= endDate) {
-        const recurringData = {
-            ...baseData,
-            date: currentDate.toISOString().split('T')[0],
-            parentRehearsalId: parentId,
-            isRecurring: false,
-            createdAt: serverTimestamp()
-        };
-
-        recurringData.invitedMembers = recurringData.invitedMembers.map(m => ({
-            ...m,
-            status: 'pending'
-        }));
-
-        await addDoc(collection(db, "rehearsals"), recurringData);
-
-        currentDate.setDate(currentDate.getDate() + dayIncrement);
-    }
-}
 
 // Update create sheet to use new unified screen
 function showCreateEventFromSheet(type) {
