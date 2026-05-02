@@ -1406,234 +1406,6 @@ function triggerPhotoUpload(mode) {
 }
 window.triggerPhotoUpload = triggerPhotoUpload;
 
-// Initialize photo carousel on profile view
-function initPhotoCarousel(photos) {
-    const carousel = document.getElementById('photoCarousel');
-    const carouselTrack = document.getElementById('carouselTrack');
-    const carouselIndicators = document.getElementById('carouselIndicators');
-    const carouselPrev = document.getElementById('carouselPrev');
-    const carouselNext = document.getElementById('carouselNext');
-
-    if (!carouselTrack) return;
-
-    window.currentCarouselIndex = 0;
-    window.viewerPhotos = photos || []; // Store for photo viewer
-
-    if (!photos || photos.length === 0) {
-        // No photos - show placeholder
-        carouselTrack.innerHTML = `
-            <div class="carousel-slide active">
-                <div class="profile-avatar-placeholder" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
-                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
-                </div>
-            </div>
-        `;
-        carouselIndicators.innerHTML = '';
-        if (carouselPrev) carouselPrev.style.display = 'none';
-        if (carouselNext) carouselNext.style.display = 'none';
-        return;
-    }
-
-    // Render slides
-    carouselTrack.innerHTML = photos.map((photo, index) => `
-        <div class="carousel-slide ${index === 0 ? 'active' : ''}" data-index="${index}">
-            <img src="${photo.url}" alt="Profile photo ${index + 1}" onerror="this.parentElement.innerHTML='<div class=\\'carousel-slide-placeholder\\'><svg width=\\'48\\' height=\\'48\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'currentColor\\' stroke-width=\\'1.5\\'><circle cx=\\'12\\' cy=\\'8\\' r=\\'4\\'/><path d=\\'M4 20c0-4 4-6 8-6s8 2 8 6\\'/></svg></div>'">
-        </div>
-    `).join('');
-
-    // Render indicators (bar style at top)
-    if (photos.length > 1) {
-        carouselIndicators.innerHTML = photos.map((_, index) => `
-            <button class="carousel-dot ${index === 0 ? 'active' : ''}" onclick="event.stopPropagation(); carouselGoTo(${index})" aria-label="Go to photo ${index + 1}"></button>
-        `).join('');
-        if (carouselPrev) carouselPrev.style.display = 'flex';
-        if (carouselNext) carouselNext.style.display = 'flex';
-    } else {
-        carouselIndicators.innerHTML = '';
-        if (carouselPrev) carouselPrev.style.display = 'none';
-        if (carouselNext) carouselNext.style.display = 'none';
-    }
-
-    // Click to open full-screen viewer
-    if (carousel) {
-        carousel.onclick = function(e) {
-            // Don't open viewer if clicking nav buttons
-            if (e.target.closest('.carousel-nav') || e.target.closest('.carousel-dot')) {
-                return;
-            }
-            openPhotoViewer(window.currentCarouselIndex);
-        };
-    }
-
-    // Set up touch handlers for swipe
-    setupCarouselTouch();
-}
-window.initPhotoCarousel = initPhotoCarousel;
-
-// Navigate carousel
-function carouselNavigate(direction) {
-    const slides = document.querySelectorAll('.carousel-slide');
-    if (slides.length <= 1) return;
-
-    const totalSlides = slides.length;
-    window.currentCarouselIndex = (window.currentCarouselIndex + direction + totalSlides) % totalSlides;
-
-    updateCarouselPosition();
-}
-window.carouselNavigate = carouselNavigate;
-
-// Go to specific carousel slide
-function carouselGoTo(index) {
-    window.currentCarouselIndex = index;
-    updateCarouselPosition();
-}
-window.carouselGoTo = carouselGoTo;
-
-// Update carousel visual position
-function updateCarouselPosition() {
-    const track = document.getElementById('carouselTrack');
-    const slides = document.querySelectorAll('.carousel-slide');
-    const dots = document.querySelectorAll('.carousel-dot');
-
-    if (!track) return;
-
-    // Update slide positions
-    track.style.transform = `translateX(-${window.currentCarouselIndex * 100}%)`;
-
-    // Update active states
-    slides.forEach((slide, i) => {
-        slide.classList.toggle('active', i === window.currentCarouselIndex);
-    });
-    dots.forEach((dot, i) => {
-        dot.classList.toggle('active', i === window.currentCarouselIndex);
-    });
-}
-
-// Set up touch handlers for carousel swipe
-function setupCarouselTouch() {
-    const carousel = document.getElementById('photoCarousel');
-    if (!carousel) return;
-
-    // Prevent adding duplicate listeners
-    if (carousel.dataset.touchSetup) return;
-    carousel.dataset.touchSetup = 'true';
-
-    let touchStartX = 0;
-    let touchEndX = 0;
-
-    carousel.addEventListener('touchstart', (e) => {
-        touchStartX = e.changedTouches[0].screenX;
-    }, { passive: true });
-
-    carousel.addEventListener('touchend', (e) => {
-        touchEndX = e.changedTouches[0].screenX;
-        const swipeThreshold = 50;
-        const diff = touchStartX - touchEndX;
-
-        if (Math.abs(diff) > swipeThreshold) {
-            if (diff > 0) {
-                carouselNavigate(1);
-            } else {
-                carouselNavigate(-1);
-            }
-        }
-    }, { passive: true });
-}
-
-// Photo viewer state
-window.viewerPhotos = [];
-window.viewerIndex = 0;
-
-// Open photo viewer
-function openPhotoViewer(index) {
-    if (!window.viewerPhotos || window.viewerPhotos.length === 0) return;
-
-    window.viewerIndex = (typeof index === 'number') ? index : (window.currentCarouselIndex || 0);
-    const photo = window.viewerPhotos[window.viewerIndex];
-    if (!photo) return;
-
-    const overlay = document.getElementById('photoViewerOverlay');
-    const image = document.getElementById('photoViewerImage');
-    const counter = document.getElementById('photoViewerCounter');
-    const prevBtn = document.getElementById('viewerPrev');
-    const nextBtn = document.getElementById('viewerNext');
-
-    if (!overlay || !image) return;
-
-    image.src = photo.url;
-    if (counter) counter.textContent = `${window.viewerIndex + 1} / ${window.viewerPhotos.length}`;
-
-    // Show/hide nav buttons
-    if (window.viewerPhotos.length <= 1) {
-        prevBtn.style.display = 'none';
-        nextBtn.style.display = 'none';
-        counter.style.display = 'none';
-    } else {
-        prevBtn.style.display = 'flex';
-        nextBtn.style.display = 'flex';
-        counter.style.display = 'block';
-    }
-
-    overlay.classList.add('visible');
-    document.body.style.overflow = 'hidden';
-}
-window.openPhotoViewer = openPhotoViewer;
-
-// Open photo viewer with a single image URL
-function viewSingleImage(imageUrl) {
-    window.viewerPhotos = [{ url: imageUrl }];
-    window.viewerIndex = 0;
-    openPhotoViewer(0);
-}
-window.viewSingleImage = viewSingleImage;
-
-// Close photo viewer
-function closePhotoViewer(event) {
-    // If event exists and target is not the overlay itself, don't close
-    if (event && event.target !== event.currentTarget && !event.target.classList.contains('photo-viewer-close')) {
-        return;
-    }
-
-    const overlay = document.getElementById('photoViewerOverlay');
-    overlay.classList.remove('visible');
-    document.body.style.overflow = '';
-}
-window.closePhotoViewer = closePhotoViewer;
-
-// Navigate in photo viewer
-function viewerNavigate(direction, event) {
-    if (event) {
-        event.stopPropagation();
-    }
-
-    const total = window.viewerPhotos.length;
-    if (total <= 1) return;
-
-    window.viewerIndex = (window.viewerIndex + direction + total) % total;
-
-    const photo = window.viewerPhotos[window.viewerIndex];
-    const image = document.getElementById('photoViewerImage');
-    const counter = document.getElementById('photoViewerCounter');
-
-    image.src = photo.url;
-    counter.textContent = `${window.viewerIndex + 1} / ${window.viewerPhotos.length}`;
-}
-window.viewerNavigate = viewerNavigate;
-
-// Keyboard navigation for photo viewer
-document.addEventListener('keydown', (e) => {
-    const overlay = document.getElementById('photoViewerOverlay');
-    if (!overlay || !overlay.classList.contains('visible')) return;
-
-    if (e.key === 'Escape') {
-        closePhotoViewer();
-    } else if (e.key === 'ArrowLeft') {
-        viewerNavigate(-1);
-    } else if (e.key === 'ArrowRight') {
-        viewerNavigate(1);
-    }
-});
-
 // Handle profile photo selection
 async function handleProfilePhotoSelect(event, mode) {
     let file = event.target.files[0];
@@ -1641,34 +1413,6 @@ async function handleProfilePhotoSelect(event, mode) {
 
     // Reset file input so same file can be selected again
     event.target.value = '';
-
-    // Check if at limit
-    if (window.pendingProfilePhotos.length >= 5) {
-        alert('Maximum 5 photos allowed');
-        return;
-    }
-
-    // Check if HEIC and convert
-    const isHeic = file.type === 'image/heic' || file.type === 'image/heif' ||
-                   file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
-
-    if (isHeic) {
-        try {
-            console.log('Converting HEIC to PNG...');
-            let result = await heic2any({
-                blob: file,
-                toType: 'image/png'
-            });
-            // heic2any can return an array for multi-image HEIC files
-            const blob = Array.isArray(result) ? result[0] : result;
-            file = new File([blob], file.name.replace(/\.heic$/i, '.png').replace(/\.heif$/i, '.png'), { type: 'image/png' });
-            console.log('HEIC conversion complete, size:', file.size);
-        } catch (error) {
-            console.error('HEIC conversion failed:', error);
-            alert('Could not convert HEIC image. Please try a JPEG or PNG.');
-            return;
-        }
-    }
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
@@ -1849,10 +1593,11 @@ async function viewMusicianProfile(userId) {
         if (photos.length === 0 && profile.photoURL) {
             photos = [{ url: profile.photoURL, isPrimary: true }];
         }
-        try {
-            initPhotoCarousel(photos);
-        } catch (carouselError) {
-            console.error('Error initializing carousel:', carouselError);
+        const photoEl = document.getElementById('viewProfilePhoto');
+        const primary = photos.find(p => p.isPrimary) || photos[0];
+        if (photoEl) {
+            photoEl.src = primary?.url || '';
+            photoEl.style.display = primary?.url ? 'block' : 'none';
         }
 
         const instrumentsDiv = document.getElementById('viewProfileInstruments');
@@ -2141,26 +1886,6 @@ async function handleBandPhotoSelect(event) {
     
     const preview = document.getElementById('bandPhotoPreview');
     preview.textContent = '⏳';
-    
-    // Check if HEIC and convert
-    const isHeic = file.type === 'image/heic' || file.type === 'image/heif' || 
-                   file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif');
-    
-    if (isHeic) {
-        try {
-            let result = await heic2any({
-                blob: file,
-                toType: 'image/png'
-            });
-            const blob = Array.isArray(result) ? result[0] : result;
-            file = new File([blob], file.name.replace(/\.heic$/i, '.png').replace(/\.heif$/i, '.png'), { type: 'image/png' });
-        } catch (error) {
-            console.error('HEIC conversion failed:', error);
-            alert('Could not convert image. Please try a JPEG or PNG.');
-            preview.innerHTML = '<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="19" cy="7" r="3"/><path d="M19 21v-1a3 3 0 00-3-3h-1"/></svg>';
-            return;
-        }
-    }
     
     // Show preview
     const reader = new FileReader();
