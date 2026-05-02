@@ -19,14 +19,6 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
 
-    // Band Messages subcollection (text blasts)
-    match /bands/{bandId}/messages/{messageId} {
-      // Any authenticated user can read band messages
-      allow read: if request.auth != null;
-      // Any authenticated user can create messages
-      allow create: if request.auth != null;
-    }
-
     // Band Members collection
     match /bandMembers/{memberId} {
       allow read: if request.auth != null;
