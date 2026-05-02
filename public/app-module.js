@@ -5766,6 +5766,561 @@ function generateInviteEmailHtml(recipientName, bodyText, inviteUrl, eventType) 
 }
 
 // ============================================
+// BAND TEXT BLAST
+// ============================================
+
+window.textBlastState = {
+    bandId: null,
+    bandName: null,
+    members: [],
+    selectedMembers: []
+};
+
+// Open text blast modal
+async function openBandTextBlast(bandId, bandName) {
+    if (!window.currentUser) {
+        alert('Please sign in to send messages');
+        return;
+    }
+
+    window.textBlastState.bandId = bandId;
+    window.textBlastState.bandName = bandName || 'Band';
+    window.textBlastState.members = [];
+    window.textBlastState.selectedMembers = [];
+
+    document.getElementById('textBlastBandName').textContent = window.textBlastState.bandName;
+    document.getElementById('textBlastMessage').value = '';
+    updateTextBlastCharCount();
+
+    // Update signature preview
+    const senderName = window.currentUserProfile?.name || window.currentUser?.displayName || 'You';
+    document.getElementById('textBlastSenderName').textContent = senderName;
+    document.getElementById('textBlastBandNamePreview').textContent = window.textBlastState.bandName;
+
+    const modal = document.getElementById('textBlastModal');
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+
+    await loadTextBlastMembers(bandId);
+}
+window.openBandTextBlast = openBandTextBlast;
+
+// Close text blast modal
+function closeTextBlastModal() {
+    document.getElementById('textBlastModal').classList.remove('active');
+    document.body.style.overflow = '';
+}
+window.closeTextBlastModal = closeTextBlastModal;
+
+// Load band members for text blast
+async function loadTextBlastMembers(bandId) {
+    const container = document.getElementById('textBlastRecipientsList');
+    container.innerHTML = '<div class="loading-spinner"></div>';
+
+    try {
+        // Get band members
+        const membersQuery = query(
+            collection(db, "bandMembers"),
+            where("bandId", "==", bandId),
+            where("status", "==", "accepted")
+        );
+        const membersSnap = await getDocs(membersQuery);
+
+        const members = [];
+        for (const memberDoc of membersSnap.docs) {
+            const member = memberDoc.data();
+            let phone = member.phone || null;
+            let email = member.email || null;
+
+            // Try to get contact info from user profile
+            if (member.userId) {
+                const userDoc = await getDoc(doc(db, "users", member.userId));
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    phone = phone || userData.phone || null;
+                    email = email || userData.email || null;
+                }
+            }
+
+            members.push({
+                id: memberDoc.id,
+                name: member.name,
+                email: email,
+                phone: phone,
+                userId: member.userId
+            });
+        }
+
+        // Also get band leader if not in members
+        const bandDoc = await getDoc(doc(db, "bands", bandId));
+        if (bandDoc.exists()) {
+            const bandData = bandDoc.data();
+            const leaderInMembers = members.some(m => m.userId === bandData.leaderId);
+            if (!leaderInMembers && bandData.leaderId) {
+                // Get leader's phone - first check band document, then user profile
+                let leaderPhone = bandData.leaderPhone || null;
+                let leaderEmail = bandData.leaderEmail;
+                let leaderName = bandData.leaderName;
+
+                const leaderDoc = await getDoc(doc(db, "users", bandData.leaderId));
+                if (leaderDoc.exists()) {
+                    const leaderData = leaderDoc.data();
+                    leaderPhone = leaderPhone || leaderData.phone || null;
+                    leaderEmail = leaderEmail || leaderData.email;
+                    leaderName = leaderName || leaderData.name || 'Leader';
+                }
+
+                members.unshift({
+                    id: 'leader',
+                    name: leaderName,
+                    email: leaderEmail,
+                    phone: leaderPhone,
+                    userId: bandData.leaderId
+                });
+            }
+        }
+
+        window.textBlastState.members = members;
+        // Select all by default
+        window.textBlastState.selectedMembers = members.map(m => m.id);
+
+        renderTextBlastMembers();
+        updateTextBlastCounts();
+
+    } catch (error) {
+        console.error("Error loading members:", error);
+        container.innerHTML = '<div class="invite-empty-state">Error loading members</div>';
+    }
+}
+
+// Render text blast members
+function renderTextBlastMembers() {
+    const container = document.getElementById('textBlastRecipientsList');
+    const members = window.textBlastState.members;
+
+    if (members.length === 0) {
+        container.innerHTML = '<div class="invite-empty-state">No band members found</div>';
+        return;
+    }
+
+    container.innerHTML = members.map(m => {
+        const isSelected = window.textBlastState.selectedMembers.includes(m.id);
+        const hasEmail = !!m.email;
+        const hasPhone = !!m.phone;
+        const isCurrentUser = m.userId === window.currentUser?.uid;
+
+        // Edit button - show "+ Add phone" when no phone, or edit icon when has phone
+        // Anyone can edit any member's phone (leader's phone stored on band doc)
+        let editBtn = '';
+        if (hasPhone) {
+            editBtn = `<button class="text-blast-edit-btn" onclick="event.stopPropagation(); openTextBlastEditPhone('${m.id}')" title="Edit phone">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+            </button>`;
+        } else {
+            editBtn = `<button class="text-blast-add-phone-btn" onclick="event.stopPropagation(); openTextBlastEditPhone('${m.id}')">
+                + Add phone
+            </button>`;
+        }
+
+        return `
+            <div class="invite-recipient-item ${isSelected ? 'selected' : ''}"
+                 onclick="toggleTextBlastMember('${m.id}')">
+                <div class="invite-recipient-check">
+                    ${isSelected ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                </div>
+                <div class="invite-recipient-info">
+                    <div class="invite-recipient-name">${escapeHtml(m.name)}${isCurrentUser ? ' (you)' : ''}</div>
+                    <div class="invite-recipient-channels">
+                        ${hasEmail ? '<span class="channel-badge email">Email</span>' : ''}
+                        ${hasPhone ? '<span class="channel-badge sms">SMS</span>' : ''}
+                        ${!hasPhone ? '<span class="channel-badge none">No phone</span>' : ''}
+                    </div>
+                </div>
+                ${editBtn}
+            </div>
+        `;
+    }).join('');
+}
+
+// Toggle text blast member selection
+function toggleTextBlastMember(memberId) {
+    const idx = window.textBlastState.selectedMembers.indexOf(memberId);
+    if (idx >= 0) {
+        window.textBlastState.selectedMembers.splice(idx, 1);
+    } else {
+        window.textBlastState.selectedMembers.push(memberId);
+    }
+    renderTextBlastMembers();
+    updateTextBlastCounts();
+}
+window.toggleTextBlastMember = toggleTextBlastMember;
+
+// Select/deselect all
+function selectAllTextBlastRecipients() {
+    window.textBlastState.selectedMembers = window.textBlastState.members.map(m => m.id);
+    renderTextBlastMembers();
+    updateTextBlastCounts();
+}
+window.selectAllTextBlastRecipients = selectAllTextBlastRecipients;
+
+function deselectAllTextBlastRecipients() {
+    window.textBlastState.selectedMembers = [];
+    renderTextBlastMembers();
+    updateTextBlastCounts();
+}
+window.deselectAllTextBlastRecipients = deselectAllTextBlastRecipients;
+
+// Update counts
+function updateTextBlastCounts() {
+    const selected = window.textBlastState.selectedMembers;
+    const members = window.textBlastState.members.filter(m => selected.includes(m.id));
+
+    const smsCount = members.filter(m => m.phone).length;
+    const emailCount = members.filter(m => m.email).length;
+
+    document.getElementById('textBlastMemberCount').textContent = members.length;
+    document.getElementById('blastSmsCount').textContent = `(${smsCount} with phone)`;
+    document.getElementById('blastEmailCount').textContent = `(${emailCount} with email)`;
+}
+
+function updateTextBlastPreview() {
+    updateTextBlastCounts();
+}
+window.updateTextBlastPreview = updateTextBlastPreview;
+
+function updateTextBlastCharCount() {
+    const textarea = document.getElementById('textBlastMessage');
+    document.getElementById('textBlastCharCount').textContent = textarea.value.length;
+}
+window.updateTextBlastCharCount = updateTextBlastCharCount;
+
+// State for phone edit modal
+window.editPhoneState = {
+    memberId: null,
+    memberName: null
+};
+
+// Open phone edit modal for text blast member
+function openTextBlastEditPhone(memberId) {
+    const member = window.textBlastState.members.find(m => m.id === memberId);
+    if (!member) return;
+
+    window.editPhoneState.memberId = memberId;
+    window.editPhoneState.memberName = member.name;
+
+    document.getElementById('editPhoneMemberName').textContent = member.name;
+    document.getElementById('editPhoneInput').value = member.phone ? formatPhoneDisplay(member.phone) : '';
+
+    document.getElementById('editPhoneModal').classList.add('active');
+
+    // Focus input after modal opens
+    setTimeout(() => {
+        document.getElementById('editPhoneInput').focus();
+    }, 100);
+}
+window.openTextBlastEditPhone = openTextBlastEditPhone;
+
+function closeEditPhoneModal() {
+    document.getElementById('editPhoneModal').classList.remove('active');
+    window.editPhoneState = { memberId: null, memberName: null, fromBandDetail: false, isLeader: false };
+}
+window.closeEditPhoneModal = closeEditPhoneModal;
+
+async function saveEditPhone() {
+    const memberId = window.editPhoneState.memberId;
+    const fromBandDetail = window.editPhoneState.fromBandDetail;
+    const isLeader = window.editPhoneState.isLeader;
+    if (!memberId) return;
+
+    const phoneRaw = document.getElementById('editPhoneInput').value.trim();
+    const phone = phoneRaw ? normalizePhoneNumber(phoneRaw) : null;
+
+    const btn = document.getElementById('saveEditPhoneBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    try {
+        if (fromBandDetail) {
+            if (isLeader) {
+                // Leader's phone is stored on band document
+                await updateDoc(doc(db, "bands", memberId), { leaderPhone: phone });
+                // Update local state
+                if (window.currentBandData) {
+                    window.currentBandData.leaderPhone = phone;
+                }
+            } else {
+                // Regular member - update bandMembers directly
+                await updateDoc(doc(db, "bandMembers", memberId), { phone: phone });
+            }
+
+            // Refresh band members display
+            if (window.currentBandId && window.currentBandData) {
+                const userId = window.currentUser?.uid;
+                const isCurrentUserLeader = window.currentBandData.leaderId === userId;
+                const isTempAdmin = window.currentBandData.tempAdminId === userId && window.currentBandData.leaderStatus === 'pending';
+                await loadBandMembers(window.currentBandId, isCurrentUserLeader || isTempAdmin, window.currentBandData);
+            }
+        } else {
+            // Saving from text blast modal
+            await saveTextBlastMemberPhone(memberId, phoneRaw);
+        }
+        closeEditPhoneModal();
+    } catch (error) {
+        console.error("Error saving phone:", error);
+        alert("Error saving phone number");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save';
+    }
+}
+window.saveEditPhone = saveEditPhone;
+
+// Open phone edit from band detail page
+function openBandDetailEditPhone(memberId, memberName, currentPhone) {
+    window.editPhoneState.memberId = memberId;
+    window.editPhoneState.memberName = memberName;
+    window.editPhoneState.fromBandDetail = true;
+
+    document.getElementById('editPhoneMemberName').textContent = memberName;
+    document.getElementById('editPhoneInput').value = currentPhone ? formatPhoneDisplay(currentPhone) : '';
+
+    document.getElementById('editPhoneModal').classList.add('active');
+
+    setTimeout(() => {
+        document.getElementById('editPhoneInput').focus();
+    }, 100);
+}
+window.openBandDetailEditPhone = openBandDetailEditPhone;
+
+// Open phone edit for band leader (phone stored on band document)
+function openLeaderEditPhone(bandId, leaderName) {
+    window.editPhoneState.memberId = bandId; // Store bandId for leader
+    window.editPhoneState.memberName = leaderName;
+    window.editPhoneState.fromBandDetail = true;
+    window.editPhoneState.isLeader = true;
+
+    document.getElementById('editPhoneMemberName').textContent = leaderName;
+    document.getElementById('editPhoneInput').value = '';
+
+    document.getElementById('editPhoneModal').classList.add('active');
+
+    setTimeout(() => {
+        document.getElementById('editPhoneInput').focus();
+    }, 100);
+}
+window.openLeaderEditPhone = openLeaderEditPhone;
+
+// Save phone number for a text blast member
+async function saveTextBlastMemberPhone(memberId, phoneRaw) {
+    const member = window.textBlastState.members.find(m => m.id === memberId);
+    if (!member) return;
+
+    const phone = phoneRaw ? normalizePhoneNumber(phoneRaw) : null;
+
+    try {
+        if (memberId === 'leader') {
+            // Leader's phone is stored on band document
+            await updateDoc(doc(db, "bands", window.textBlastState.bandId), { leaderPhone: phone });
+        } else {
+            // Regular band member - update bandMembers document
+            await updateDoc(doc(db, "bandMembers", memberId), { phone: phone });
+        }
+
+        // Update local state
+        member.phone = phone;
+
+        // Re-render and update counts
+        renderTextBlastMembers();
+        updateTextBlastCounts();
+
+    } catch (error) {
+        console.error("Error saving phone:", error);
+        alert("Error saving phone number: " + error.message);
+    }
+}
+window.saveTextBlastMemberPhone = saveTextBlastMemberPhone;
+
+// Send text blast
+async function sendTextBlast() {
+    const selected = window.textBlastState.selectedMembers;
+    const members = window.textBlastState.members.filter(m => selected.includes(m.id));
+
+    if (members.length === 0) {
+        alert('Please select at least one recipient');
+        return;
+    }
+
+    const message = document.getElementById('textBlastMessage').value.trim();
+    if (!message) {
+        alert('Please enter a message');
+        return;
+    }
+
+    const sendViaSms = document.getElementById('blastViaSms').checked;
+    const sendViaEmail = document.getElementById('blastViaEmail').checked;
+
+    if (!sendViaSms && !sendViaEmail) {
+        alert('Please select at least one delivery method');
+        return;
+    }
+
+    const btn = document.getElementById('sendTextBlastBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+
+    try {
+        const results = { smsSent: 0, emailSent: 0 };
+
+        // Send SMS
+        if (sendViaSms) {
+            const smsRecipients = members.filter(m => m.phone);
+            if (smsRecipients.length > 0) {
+                // Build recipients list - assume first contact for safety (includes opt-out message)
+                const recipientsWithStatus = smsRecipients.map(r => ({
+                    phone: r.phone,
+                    name: r.name,
+                    isFirstContact: true // Always include opt-out info for compliance
+                }));
+
+                // Add sender context to SMS
+                const senderName = window.currentUserProfile?.name || window.currentUser?.displayName || 'A band member';
+                const bandName = window.textBlastState.bandName;
+                const smsMessage = `${message}\n\n— ${senderName} (${bandName})`;
+
+                console.log('DEBUG: About to call sendBulkSMS via HTTP');
+                console.log('DEBUG: recipients:', recipientsWithStatus);
+
+                // Get auth token
+                const idToken = await window.currentUser.getIdToken();
+                console.log('DEBUG: Got ID token');
+
+                // Call HTTP endpoint directly
+                const response = await fetch('https://us-central1-bandcal-89c81.cloudfunctions.net/sendBulkSMS', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${idToken}`
+                    },
+                    body: JSON.stringify({
+                        recipients: recipientsWithStatus,
+                        messageTemplate: smsMessage,
+                        referenceType: 'band',
+                        referenceId: window.textBlastState.bandId,
+                        messageType: 'blast'
+                    })
+                });
+
+                console.log('DEBUG: Response status:', response.status);
+                const smsResult = await response.json();
+                console.log('DEBUG: smsResult:', smsResult);
+
+                if (!response.ok) {
+                    throw new Error(smsResult.error || 'Failed to send SMS');
+                }
+
+                results.smsSent = smsResult.sent || 0;
+            }
+        }
+
+        // Send email
+        if (sendViaEmail) {
+            const emailRecipients = members.filter(m => m.email);
+            const emailHtml = generateTextBlastEmailHtml(message, window.textBlastState.bandName);
+            for (const r of emailRecipients) {
+                try {
+                    await addDoc(collection(db, "mail"), {
+                        to: r.email,
+                        message: {
+                            subject: `Message from ${window.textBlastState.bandName}`,
+                            html: emailHtml
+                        }
+                    });
+                    results.emailSent++;
+                } catch (error) {
+                    console.error(`Failed to queue email for ${r.email}:`, error);
+                }
+            }
+        }
+
+        // Log the message to band history
+        await addDoc(collection(db, `bands/${window.textBlastState.bandId}/messages`), {
+            sentBy: window.currentUser.uid,
+            sentByName: window.currentUserProfile?.name || window.currentUser.displayName,
+            sentAt: serverTimestamp(),
+            body: message,
+            channels: [sendViaSms ? 'sms' : null, sendViaEmail ? 'email' : null].filter(Boolean),
+            recipientCount: members.length,
+            smsCount: results.smsSent,
+            emailCount: results.emailSent
+        });
+
+        // Show success
+        const parts = [];
+        if (results.smsSent > 0) parts.push(`${results.smsSent} SMS`);
+        if (results.emailSent > 0) parts.push(`${results.emailSent} email`);
+        alert(`Sent ${parts.join(' and ')} message${(results.smsSent + results.emailSent) > 1 ? 's' : ''}!`);
+
+        closeTextBlastModal();
+
+    } catch (error) {
+        console.error('Error sending text blast:', error);
+        alert('Failed to send messages: ' + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send Message';
+    }
+}
+window.sendTextBlast = sendTextBlast;
+
+// Helper to open text blast from band detail page
+function openBandTextBlastFromDetail() {
+    if (!window.currentBandId || !window.currentBandData) {
+        alert('Band data not loaded');
+        return;
+    }
+    openBandTextBlast(window.currentBandId, window.currentBandData.name);
+}
+window.openBandTextBlastFromDetail = openBandTextBlastFromDetail;
+
+// Generate email HTML with link previews for text blasts
+function generateTextBlastEmailHtml(message, bandName) {
+    const senderName = window.currentUserProfile?.name || window.currentUser?.displayName || 'A band member';
+
+    // Detect URLs in the message
+    const urlRegex = /(https?:\/\/[^\s]+)/gi;
+    const urls = message.match(urlRegex) || [];
+
+    // Escape the message but preserve line breaks
+    let messageHtml = escapeHtml(message);
+
+    // Replace URLs with styled buttons
+    urls.forEach(url => {
+        const displayUrl = url.length > 40 ? url.substring(0, 40) + '...' : url;
+        const buttonHtml = `</p>
+            <p style="margin: 20px 0;">
+                <a href="${escapeHtml(url)}" style="background: #4CAF50; color: white; padding: 14px 24px; text-decoration: none; border-radius: 8px; font-weight: 500; display: inline-block;">
+                    Open Link
+                </a>
+                <br>
+                <span style="font-size: 12px; color: #888; margin-top: 8px; display: inline-block;">${escapeHtml(displayUrl)}</span>
+            </p>
+            <p style="color: #555; font-size: 16px; line-height: 1.6; white-space: pre-line;">`;
+        messageHtml = messageHtml.replace(escapeHtml(url), buttonHtml);
+    });
+
+    return `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #333;">Message from ${escapeHtml(bandName)}</h2>
+            <p style="color: #555; font-size: 16px; line-height: 1.6; white-space: pre-line;">${messageHtml}</p>
+            <p style="color: #888; font-size: 14px; margin-top: 30px;">Sent via Tempo by ${escapeHtml(senderName)}</p>
+        </div>
+    `;
+}
+
+// ============================================
 // EDIT BAND MEMBER MODAL
 // ============================================
 

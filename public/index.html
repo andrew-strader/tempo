@@ -260,6 +260,72 @@
     </div>
 
 
+
+
+    <!-- Band Text Blast Modal -->
+    <div class="invite-modal-overlay" id="textBlastModal">
+        <div class="invite-modal">
+            <button class="invite-modal-close" onclick="closeTextBlastModal()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+
+            <div class="invite-modal-header">
+                <div class="invite-modal-title">Message Band</div>
+                <div class="invite-modal-subtitle" id="textBlastBandName"></div>
+            </div>
+
+            <!-- Recipients -->
+            <div class="invite-section">
+                <div class="invite-section-header">
+                    <span class="invite-section-label">To: <span id="textBlastMemberCount">0</span> band members</span>
+                    <div>
+                        <button class="btn-link" onclick="selectAllTextBlastRecipients()">Select all</button>
+                        <button class="btn-link" onclick="deselectAllTextBlastRecipients()">Deselect all</button>
+                    </div>
+                </div>
+                <div class="invite-recipient-list" id="textBlastRecipientsList"></div>
+            </div>
+
+            <!-- Delivery Method -->
+            <div class="invite-section">
+                <div class="invite-section-label">Send via:</div>
+                <div class="invite-delivery-options">
+                    <label class="invite-checkbox">
+                        <input type="checkbox" id="blastViaSms" checked onchange="updateTextBlastPreview()">
+                        <span>SMS</span>
+                        <span class="channel-count" id="blastSmsCount">(0 with phone)</span>
+                    </label>
+                    <label class="invite-checkbox">
+                        <input type="checkbox" id="blastViaEmail" checked onchange="updateTextBlastPreview()">
+                        <span>Email</span>
+                        <span class="channel-count" id="blastEmailCount">(0 with email)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Message -->
+            <div class="invite-section">
+                <div class="invite-section-label">Your message:</div>
+                <textarea id="textBlastMessage" rows="4" class="invite-textarea" placeholder="Type your message here..." oninput="updateTextBlastCharCount()"></textarea>
+                <div class="invite-char-count">
+                    <span id="textBlastCharCount">0</span>/160 characters
+                </div>
+                <div id="textBlastSignaturePreview" style="margin-top: 12px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; font-size: 13px; color: #888;">
+                    Messages will be signed:<br>
+                    <span style="color: #aaa;">— <span id="textBlastSenderName">You</span> (<span id="textBlastBandNamePreview">Band</span>)</span>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="invite-modal-actions">
+                <button class="btn btn-secondary" onclick="closeTextBlastModal()">Cancel</button>
+                <button class="btn btn-primary" id="sendTextBlastBtn" onclick="sendTextBlast()">Send Message</button>
+            </div>
+        </div>
+    </div>
     <!-- Edit Band Member Modal -->
     <div class="invite-modal-overlay" id="editMemberModal">
         <div class="invite-modal" style="min-height: auto; padding-top: 20px;">
@@ -1255,6 +1321,13 @@
                 </div>
             </div>
 
+            <!-- Send Message to Band -->
+            <button class="btn btn-full" id="sendBandMessageBtn" onclick="openBandTextBlastFromDetail()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 6px;">
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                </svg>
+                Send Message to Band
+            </button>
 
             <div class="card">
                 <div class="card-header">
