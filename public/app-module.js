@@ -399,11 +399,6 @@ function updateAuthUI(user) {
 
 function showHomeScreen() {
     showFeedHome();
-    
-    // Check if we should show "What's New" modal
-    setTimeout(() => {
-        if (window.checkWhatsNew) checkWhatsNew();
-    }, 500);
 }
 
 window.showHomeScreen = showHomeScreen;
@@ -3183,65 +3178,6 @@ window.currentSelectedDay = null;
 // ============================================
 // DISCOVERY FEED & NEW HOME FUNCTIONALITY
 // ============================================
-
-// Evergreen Update Config - just edit this for new updates
-const UPDATE_CONFIG = {
-    version: "2026-01-11",
-    title: "Quick heads up",
-    items: [
-        { title: "New home feed", desc: "discover musicians and see what's happening" },
-        { title: "Bottom tabs", desc: "faster access to your gigs and bands" },
-        { title: "Richer profiles", desc: "add your gear, influences, and more" }
-    ],
-    footer: "All your stuff is still here, just reorganized a bit."
-};
-
-// Check if user has seen the latest update
-async function checkWhatsNew() {
-    if (!window.currentUser || !window.currentUserProfile) return;
-    
-    const lastSeen = window.currentUserProfile.lastSeenUpdateVersion || "";
-    
-    // Show modal if they haven't seen this version
-    if (lastSeen < UPDATE_CONFIG.version) {
-        // Build modal content dynamically
-        const modal = document.getElementById('whatsNewOverlay');
-        const titleEl = modal.querySelector('.whats-new-title');
-        const contentEl = modal.querySelector('.whats-new-content');
-        
-        titleEl.textContent = UPDATE_CONFIG.title;
-        contentEl.innerHTML = `
-            <p>We made some changes:</p>
-            <ul>
-                ${UPDATE_CONFIG.items.map(item =>
-                    `<li><strong>${item.title}</strong> — ${item.desc}</li>`
-                ).join('')}
-            </ul>
-            <p style="color: #888; font-size: 14px; margin-top: 16px;">${UPDATE_CONFIG.footer}</p>
-        `;
-        
-        modal.classList.add('visible');
-    }
-}
-window.checkWhatsNew = checkWhatsNew;
-
-// Dismiss the "What's New" modal
-async function dismissWhatsNew() {
-    document.getElementById('whatsNewOverlay').classList.remove('visible');
-    
-    // Save that they've seen this version
-    if (window.currentUser) {
-        try {
-            await setDoc(doc(db, "users", window.currentUser.uid), {
-                lastSeenUpdateVersion: UPDATE_CONFIG.version
-            }, { merge: true });
-            window.currentUserProfile.lastSeenUpdateVersion = UPDATE_CONFIG.version;
-        } catch (error) {
-            console.error("Error saving update version:", error);
-        }
-    }
-}
-window.dismissWhatsNew = dismissWhatsNew;
 
 // Tab navigation
 function switchTab(tab) {
