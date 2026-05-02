@@ -104,7 +104,7 @@ window.showWelcomeScreen = function() {
     const welcome = document.getElementById('screenWelcome');
     if (welcome) {
         welcome.classList.add('active');
-        welcome.style.display = 'block';
+        welcome.style.display = 'flex';
     }
     document.body.classList.add('hide-tab-bar');
     const tabBar = document.getElementById('bottomTabBar');
