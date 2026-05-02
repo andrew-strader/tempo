@@ -1587,7 +1587,6 @@
             <p class="tagline">Schedule rehearsals for your show</p>
             
             <!-- Demo button for testing -->
-            <button class="demo-btn" onclick="fillDemoData()">🧪 Fill Demo Data</button>
             
             <div class="card">
                 <div class="card-header">
@@ -1718,24 +1717,6 @@
             <div class="logo"><img src="/tempo-logo.svg" alt="Tempo" class="logo-img"></div>
             <p class="tagline" id="screen2bSubtitle">Add practice materials</p>
             
-            <div class="card">
-                <div class="card-header">
-                    <h2>Setlist</h2>
-                    <span class="step-badge">Step 3 of 3</span>
-                </div>
-                
-                <p class="helper-text" style="margin-bottom: 16px;">Add songs for the set. You can skip this and add later.</p>
-                
-                <div id="setlistItems">
-                    <!-- Songs added dynamically -->
-                </div>
-                
-                <div class="add-song-row">
-                    <input type="text" id="newSongTitle" placeholder="Song title">
-                    <input type="text" id="newSongDuration" placeholder="3:45" class="duration-input">
-                    <button class="add-song-btn" onclick="addSong()">+</button>
-                </div>
-            </div>
             
             <div class="card">
                 <h2>Practice Playlist</h2>
@@ -1745,40 +1726,6 @@
                 <p class="helper-text" style="margin-top: -10px;">Spotify, Apple Music, or SoundCloud playlist URL</p>
             </div>
             
-            <div class="card">
-                <h2>Show Graphic</h2>
-                <p class="helper-text" style="margin-top: 0; margin-bottom: 16px;">Upload a flyer or poster for the show</p>
-                
-                <div id="showGraphicPreview" style="display:none; margin-bottom: 16px; text-align: center;">
-                    <img id="showGraphicImg" style="max-width: 200px; border-radius: 8px;">
-                    <div style="margin-top: 8px;">
-                        <span class="remove-graphic" onclick="removeShowGraphic()" style="color: #666; cursor: pointer; font-size: 13px;">Remove</span>
-                    </div>
-                </div>
-                
-                <div class="file-upload-area" id="showGraphicUpload" onclick="document.getElementById('showGraphicInput').click()">
-                    <div class="upload-icon">🖼</div>
-                    <div class="upload-text">Tap to upload show graphic</div>
-                    <div class="upload-subtext">JPG, PNG, or GIF</div>
-                </div>
-                <input type="file" id="showGraphicInput" accept="image/*" style="display:none" onchange="handleShowGraphicSelect(event)">
-            </div>
-            
-            <div class="card">
-                <h2>Other Files</h2>
-                <p class="helper-text" style="margin-top: 0; margin-bottom: 16px;">Stage plots, charts, audio files, etc.</p>
-                
-                <div id="uploadedFiles">
-                    <!-- Uploaded files shown here -->
-                </div>
-                
-                <div class="file-upload-area" onclick="document.getElementById('fileInput').click()">
-                    <div class="upload-icon">📁</div>
-                    <div class="upload-text">Tap to upload files</div>
-                    <div class="upload-subtext">PDFs, audio files, documents</div>
-                </div>
-                <input type="file" id="fileInput" multiple accept="audio/*,.pdf,.doc,.docx" style="display:none" onchange="handleFileSelect(event)">
-            </div>
             
             <div class="skip-note">
                 💡 You can skip this and add materials later from your dashboard
@@ -1965,37 +1912,12 @@
             </div>
             
             <div class="card">
-                <h2>Setlist</h2>
-                
-                <div id="editSetlistItems"></div>
-                
-                <div class="add-song-row">
-                    <input type="text" id="editNewSongTitle" placeholder="Song title">
-                    <input type="text" id="editNewSongDuration" placeholder="3:45" class="duration-input">
-                    <button class="add-song-btn" onclick="addEditSong()">+</button>
-                </div>
-            </div>
-            
-            <div class="card">
                 <h2>Practice Playlist</h2>
-                
+
                 <label>Streaming Link</label>
                 <input type="text" id="editStreamingLink" placeholder="https://open.spotify.com/playlist/...">
             </div>
-            
-            <div class="card">
-                <h2>Files</h2>
-                
-                <div id="editExistingFiles"></div>
-                
-                <div class="file-upload-area" onclick="document.getElementById('editFileInput').click()">
-                    <div class="upload-icon">📁</div>
-                    <div class="upload-text">Tap to add more files</div>
-                    <div class="upload-subtext">Images, PDFs, audio files</div>
-                </div>
-                <input type="file" id="editFileInput" multiple accept="image/*,audio/*,.pdf" style="display:none" onchange="handleEditFileSelect(event)">
-            </div>
-            
+
             <button class="btn btn-primary" onclick="saveGigEdits()">Save Changes</button>
             <button class="btn btn-secondary" onclick="cancelEdit()">Cancel</button>
         </div>

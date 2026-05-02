@@ -58,240 +58,8 @@ function goToScreen2b() {
     document.getElementById('screen2b').classList.add('active');
 }
 
-// Setlist management
-window.setlistSongs = [];
 
-function addSong() {
-    const titleInput = document.getElementById('newSongTitle');
-    const durationInput = document.getElementById('newSongDuration');
-    
-    const title = titleInput.value.trim();
-    if (!title) {
-        alert('Please enter a song title');
-        return;
-    }
-    
-    const duration = durationInput.value.trim();
-    
-    window.setlistSongs.push({ title, duration, files: [] });
-    renderSetlist();
-    
-    // Clear inputs
-    titleInput.value = '';
-    durationInput.value = '';
-    titleInput.focus();
-}
 
-function removeSong(index) {
-    window.setlistSongs.splice(index, 1);
-    renderSetlist();
-}
-
-function renderSetlist() {
-    const container = document.getElementById('setlistItems');
-    container.innerHTML = '';
-    
-    window.setlistSongs.forEach((song, index) => {
-        const el = document.createElement('div');
-        el.className = 'setlist-item-expanded';
-        
-        const filesHtml = (song.files || []).map((file, fileIndex) => `
-            <div class="song-file">
-                <span class="song-file-icon">${file.type === 'audio' ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16 10,8" fill="currentColor"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>'}</span>
-                <span class="song-file-name">${file.name}</span>
-                <span class="song-file-remove" onclick="removeSongFile(${index}, ${fileIndex})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
-            </div>
-        `).join('');
-        
-        el.innerHTML = `
-            <div class="setlist-item-header">
-                <div class="setlist-number">${index + 1}</div>
-                <div class="setlist-info">
-                    <div class="setlist-title">${song.title}</div>
-                    ${song.duration ? `<div class="setlist-duration">${song.duration}</div>` : ''}
-                </div>
-                <span class="setlist-remove" onclick="removeSong(${index})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
-            </div>
-            <div class="song-files-section">
-                ${filesHtml}
-                <label class="song-file-upload" onclick="document.getElementById('songFileInput-${index}').click()">
-                    + Add audio or chart
-                </label>
-                <input type="file" id="songFileInput-${index}" accept="audio/*,.pdf" style="display:none" onchange="handleSongFileSelect(event, ${index})">
-            </div>
-        `;
-        container.appendChild(el);
-    });
-}
-
-async function handleSongFileSelect(event, songIndex) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    const song = window.setlistSongs[songIndex];
-    if (!song.files) song.files = [];
-    
-    // Add placeholder while uploading
-    const fileData = {
-        name: file.name,
-        type: file.type.startsWith('audio/') ? 'audio' : 'pdf',
-        status: 'uploading',
-        url: null
-    };
-    song.files.push(fileData);
-    renderSetlist();
-    
-    // Upload to Firebase
-    try {
-        const storageRef = window.storageRef(window.storage, `gigs/songs/${Date.now()}_${file.name}`);
-        const snapshot = await window.uploadBytes(storageRef, file);
-        const url = await window.getDownloadURL(snapshot.ref);
-        
-        fileData.url = url;
-        fileData.status = 'uploaded';
-        renderSetlist();
-    } catch (error) {
-        console.error('Upload error:', error);
-        // Remove failed upload
-        song.files = song.files.filter(f => f !== fileData);
-        renderSetlist();
-        alert('Error uploading file: ' + error.message);
-    }
-    
-    event.target.value = '';
-}
-
-function removeSongFile(songIndex, fileIndex) {
-    window.setlistSongs[songIndex].files.splice(fileIndex, 1);
-    renderSetlist();
-}
-
-// File upload management
-window.uploadedFiles = [];
-window.showGraphic = null;
-
-async function handleShowGraphicSelect(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    // Show preview immediately
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        document.getElementById('showGraphicImg').src = e.target.result;
-        document.getElementById('showGraphicPreview').style.display = 'block';
-        document.getElementById('showGraphicUpload').style.display = 'none';
-    };
-    reader.readAsDataURL(file);
-    
-    // Upload to Firebase
-    try {
-        const storageRef = window.storageRef(window.storage, `gigs/${Date.now()}_${file.name}`);
-        const snapshot = await window.uploadBytes(storageRef, file);
-        const url = await window.getDownloadURL(snapshot.ref);
-        
-        window.showGraphic = {
-            name: file.name,
-            type: 'image',
-            url: url
-        };
-    } catch (error) {
-        console.error('Upload error:', error);
-        alert('Error uploading image: ' + error.message);
-    }
-    
-    event.target.value = '';
-}
-
-function removeShowGraphic() {
-    window.showGraphic = null;
-    document.getElementById('showGraphicPreview').style.display = 'none';
-    document.getElementById('showGraphicUpload').style.display = 'block';
-}
-
-async function handleFileSelect(event) {
-    const files = event.target.files;
-    if (!files.length) return;
-    
-    for (const file of files) {
-        // Add to list with uploading status
-        const fileData = {
-            name: file.name,
-            size: formatFileSize(file.size),
-            type: getFileType(file),
-            file: file,
-            status: 'uploading',
-            url: null
-        };
-        
-        window.uploadedFiles.push(fileData);
-        renderUploadedFiles();
-        
-        // Upload to Firebase Storage
-        try {
-            const storageRef = window.storageRef(window.storage, `gigs/${Date.now()}_${file.name}`);
-            const snapshot = await window.uploadBytes(storageRef, file);
-            const url = await window.getDownloadURL(snapshot.ref);
-            
-            // Update file data with URL
-            fileData.url = url;
-            fileData.status = 'uploaded';
-            renderUploadedFiles();
-        } catch (error) {
-            console.error('Upload error:', error);
-            fileData.status = 'error';
-            renderUploadedFiles();
-        }
-    }
-    
-    // Clear input for next upload
-    event.target.value = '';
-}
-
-function removeUploadedFile(index) {
-    window.uploadedFiles.splice(index, 1);
-    renderUploadedFiles();
-}
-
-function renderUploadedFiles() {
-    const container = document.getElementById('uploadedFiles');
-    container.innerHTML = '';
-    
-    window.uploadedFiles.forEach((file, index) => {
-        const el = document.createElement('div');
-        el.className = 'uploaded-file' + (file.status === 'uploading' ? ' uploading' : '');
-        
-        let icon = '📄';
-        if (file.type === 'image') icon = '🖼';
-        else if (file.type === 'audio') icon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16 10,8" fill="currentColor"/></svg>';
-        else if (file.type === 'pdf') icon = '📑';
-        
-        const statusText = file.status === 'uploading' ? 'Uploading...' : 
-                           file.status === 'error' ? 'Upload failed' : 'Uploaded';
-        
-        el.innerHTML = `
-            <div class="uploaded-file-icon">${icon}</div>
-            <div class="uploaded-file-info">
-                <div class="uploaded-file-name">${file.name}</div>
-                <div class="uploaded-file-size">${file.size} · <span class="uploaded-file-status">${statusText}</span></div>
-            </div>
-            <span class="uploaded-file-remove" onclick="removeUploadedFile(${index})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
-        `;
-        container.appendChild(el);
-    });
-}
-
-function formatFileSize(bytes) {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-}
-
-function getFileType(file) {
-    if (file.type.startsWith('image/')) return 'image';
-    if (file.type.startsWith('audio/')) return 'audio';
-    if (file.type === 'application/pdf') return 'pdf';
-    return 'file';
-}
 
 function goToScreen3() {
     document.getElementById('screen2').classList.remove('active');
@@ -354,152 +122,8 @@ function hideStatus() {
 }
 
 // Fill demo data for quick testing
-function fillDemoData() {
-    const bands = ['The Midnight Howlers', 'Electric Sheep', 'Velvet Thunder', 'Neon Ghosts', 'The Broken Arrows'];
-    const venues = ['Mercury Lounge', 'Bowery Ballroom', 'Brooklyn Steel', 'Baby\'s All Right', 'Elsewhere'];
-    
-    const randomBand = bands[Math.floor(Math.random() * bands.length)];
-    const randomVenue = venues[Math.floor(Math.random() * venues.length)];
-    
-    // Set show date to 2 weeks from now
-    const showDate = new Date();
-    showDate.setDate(showDate.getDate() + 14);
-    const showDateStr = showDate.toISOString().split('T')[0];
-    
-    // Fill form fields
-    document.getElementById('bandName').value = randomBand;
-    document.getElementById('venue').value = randomVenue;
-    document.getElementById('showDate').value = showDateStr;
-    document.getElementById('loadIn').value = '18:00';
-    document.getElementById('setTime').value = '21:00';
-    
-    // Move to step 2
-    goToScreen2();
-    
-    // Fill rehearsal times after a brief delay (wait for DOM)
-    setTimeout(async () => {
-        // Calculate rehearsal dates
-        const time1 = new Date(showDate);
-        time1.setDate(time1.getDate() - 7);
-        const time2 = new Date(showDate);
-        time2.setDate(time2.getDate() - 5);
-        const time3 = new Date(showDate);
-        time3.setDate(time3.getDate() - 3);
-        
-        // Add a third slot
-        addSlot();
-        
-        // Fill the slots
-        const slots = document.querySelectorAll('.rehearsal-slot');
-        if (slots[0]) {
-            slots[0].querySelector('.slot-date').value = time1.toISOString().split('T')[0];
-            slots[0].querySelector('.slot-time').value = '19:00';
-        }
-        if (slots[1]) {
-            slots[1].querySelector('.slot-date').value = time2.toISOString().split('T')[0];
-            slots[1].querySelector('.slot-time').value = '19:00';
-        }
-        if (slots[2]) {
-            slots[2].querySelector('.slot-date').value = time3.toISOString().split('T')[0];
-            slots[2].querySelector('.slot-time').value = '20:00';
-        }
-        
-        // Fill rehearsal location
-        document.getElementById('rehearsalLocation').value = '123 Practice Space, Brooklyn';
-        
-        // Generate and upload a random demo flyer
-        await generateDemoFlyer(randomBand, randomVenue, showDateStr);
-    }, 100);
-}
 
 // Generate a random flyer image using canvas
-async function generateDemoFlyer(bandName, venue, dateStr) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 800;
-    canvas.height = 800;
-    const ctx = canvas.getContext('2d');
-    
-    // Random gradient background
-    const colors = [
-        ['#1a1a2e', '#16213e', '#0f3460'],
-        ['#2d132c', '#801336', '#c72c41'],
-        ['#0a1628', '#1e3a5f', '#3d5a80'],
-        ['#1b1b2f', '#1f4068', '#e43f5a'],
-        ['#0d0d0d', '#1a1a1a', '#333333']
-    ];
-    const palette = colors[Math.floor(Math.random() * colors.length)];
-    
-    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-    gradient.addColorStop(0, palette[0]);
-    gradient.addColorStop(0.5, palette[1]);
-    gradient.addColorStop(1, palette[2]);
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Add some random geometric shapes
-    ctx.globalAlpha = 0.1;
-    for (let i = 0; i < 5; i++) {
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(
-            Math.random() * canvas.width,
-            Math.random() * canvas.height,
-            Math.random() * 200 + 50,
-            0, Math.PI * 2
-        );
-        ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-    
-    // Band name
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 72px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(bandName, canvas.width / 2, 320);
-    
-    // Venue
-    ctx.font = '36px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillStyle = '#cccccc';
-    ctx.fillText('@ ' + venue, canvas.width / 2, 400);
-    
-    // Date
-    const dateObj = new Date(dateStr + 'T00:00:00');
-    const formattedDate = dateObj.toLocaleDateString('en-US', { 
-        weekday: 'long', 
-        month: 'long', 
-        day: 'numeric' 
-    });
-    ctx.font = '32px -apple-system, BlinkMacSystemFont, sans-serif';
-    ctx.fillStyle = '#f5a623';
-    ctx.fillText(formattedDate, canvas.width / 2, 480);
-    
-    // Convert to blob and upload
-    canvas.toBlob(async (blob) => {
-        const file = new File([blob], 'demo-flyer.png', { type: 'image/png' });
-        
-        // Upload to Firebase Storage using the correct modular syntax
-        const fileRef = window.storageRef(window.storage, `demo/${Date.now()}_demo-flyer.png`);
-        
-        try {
-            const snapshot = await window.uploadBytes(fileRef, file);
-            const url = await window.getDownloadURL(snapshot.ref);
-            
-            // Set the show graphic
-            window.showGraphic = { name: 'demo-flyer.png', url: url };
-            
-            // Update the preview if element exists
-            const preview = document.getElementById('graphicPreview');
-            if (preview) {
-                preview.innerHTML = `<img src="${url}" style="max-width:200px;max-height:200px;border-radius:8px;">`;
-                preview.style.display = 'block';
-            }
-            
-            console.log('Demo flyer uploaded:', url);
-        } catch (error) {
-            console.error('Error uploading demo flyer:', error);
-        }
-    }, 'image/png');
-}
 
 async function createGig() {
     // Require sign-in to create gigs
@@ -526,10 +150,7 @@ async function createGig() {
             rehearsalLocation: document.getElementById('rehearsalLocation').value,
             rehearsalsNeeded: document.getElementById('rehearsalCount').value,
             suggestedTimes: [],
-            setlist: window.setlistSongs || [],
             streamingLink: document.getElementById('streamingLink')?.value || '',
-            showGraphic: window.showGraphic || null,
-            files: [],
             createdAt: window.serverTimestamp(),
             // User tracking
             creatorId: window.currentUser?.uid || null,
@@ -549,19 +170,6 @@ async function createGig() {
                 gigData.suggestedTimes.push({ date, time, responses: [] });
             }
         });
-        
-        // Gather uploaded files (only successfully uploaded ones)
-        if (window.uploadedFiles) {
-            window.uploadedFiles.forEach(file => {
-                if (file.status === 'uploaded' && file.url) {
-                    gigData.files.push({
-                        name: file.name,
-                        type: file.type,
-                        url: file.url
-                    });
-                }
-            });
-        }
         
         // Save to Firestore
         const docRef = await window.addDoc(window.collection(window.db, "gigs"), gigData);
@@ -1769,13 +1377,10 @@ function backToShare() {
 }
 
 // Edit gig functionality
-window.editSetlistSongs = [];
-window.editUploadedFiles = [];
-
 function editGig() {
     const gig = window.currentGig;
     if (!gig) return;
-    
+
     // Populate edit form with current values
     document.getElementById('editBandName').value = gig.bandName || '';
     document.getElementById('editVenue').value = gig.venue || '';
@@ -1786,18 +1391,7 @@ function editGig() {
     document.getElementById('editNotes').value = gig.notes || '';
     document.getElementById('editRehearsalLocation').value = gig.rehearsalLocation || '';
     document.getElementById('editStreamingLink').value = gig.streamingLink || '';
-    
-    // Load setlist
-    window.editSetlistSongs = [...(gig.setlist || [])];
-    renderEditSetlist();
-    
-    // Load existing files
-    window.editUploadedFiles = (gig.files || []).map(f => ({
-        ...f,
-        status: 'existing'
-    }));
-    renderEditFiles();
-    
+
     // Show edit screen
     document.getElementById('screen6').classList.remove('active');
     document.getElementById('screen8').classList.add('active');
@@ -1808,163 +1402,6 @@ function cancelEdit() {
     document.getElementById('screen6').classList.add('active');
 }
 
-function addEditSong() {
-    const titleInput = document.getElementById('editNewSongTitle');
-    const durationInput = document.getElementById('editNewSongDuration');
-    
-    const title = titleInput.value.trim();
-    if (!title) return;
-    
-    window.editSetlistSongs.push({ title, duration: durationInput.value.trim(), files: [] });
-    renderEditSetlist();
-    
-    titleInput.value = '';
-    durationInput.value = '';
-}
-
-function removeEditSong(index) {
-    window.editSetlistSongs.splice(index, 1);
-    renderEditSetlist();
-}
-
-function renderEditSetlist() {
-    const container = document.getElementById('editSetlistItems');
-    container.innerHTML = '';
-    
-    window.editSetlistSongs.forEach((song, index) => {
-        const el = document.createElement('div');
-        el.className = 'setlist-item-expanded';
-        
-        const filesHtml = (song.files || []).map((file, fileIndex) => `
-            <div class="song-file">
-                <span class="song-file-icon">${file.type === 'audio' ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16 10,8" fill="currentColor"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>'}</span>
-                <span class="song-file-name">${file.name}</span>
-                <span class="song-file-remove" onclick="removeEditSongFile(${index}, ${fileIndex})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
-            </div>
-        `).join('');
-        
-        el.innerHTML = `
-            <div class="setlist-item-header">
-                <div class="setlist-number">${index + 1}</div>
-                <div class="setlist-info">
-                    <div class="setlist-title">${song.title}</div>
-                    ${song.duration ? `<div class="setlist-duration">${song.duration}</div>` : ''}
-                </div>
-                <span class="setlist-remove" onclick="removeEditSong(${index})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
-            </div>
-            <div class="song-files-section">
-                ${filesHtml}
-                <label class="song-file-upload" onclick="document.getElementById('editSongFileInput-${index}').click()">
-                    + Add audio or chart
-                </label>
-                <input type="file" id="editSongFileInput-${index}" accept="audio/*,.pdf" style="display:none" onchange="handleEditSongFileSelect(event, ${index})">
-            </div>
-        `;
-        container.appendChild(el);
-    });
-}
-
-async function handleEditSongFileSelect(event, songIndex) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    const song = window.editSetlistSongs[songIndex];
-    if (!song.files) song.files = [];
-    
-    const fileData = {
-        name: file.name,
-        type: file.type.startsWith('audio/') ? 'audio' : 'pdf',
-        status: 'uploading',
-        url: null
-    };
-    song.files.push(fileData);
-    renderEditSetlist();
-    
-    try {
-        const storageRef = window.storageRef(window.storage, `gigs/songs/${Date.now()}_${file.name}`);
-        const snapshot = await window.uploadBytes(storageRef, file);
-        const url = await window.getDownloadURL(snapshot.ref);
-        
-        fileData.url = url;
-        fileData.status = 'uploaded';
-        renderEditSetlist();
-    } catch (error) {
-        console.error('Upload error:', error);
-        song.files = song.files.filter(f => f !== fileData);
-        renderEditSetlist();
-        alert('Error uploading file: ' + error.message);
-    }
-    
-    event.target.value = '';
-}
-
-function removeEditSongFile(songIndex, fileIndex) {
-    window.editSetlistSongs[songIndex].files.splice(fileIndex, 1);
-    renderEditSetlist();
-}
-
-function removeEditFile(index) {
-    window.editUploadedFiles.splice(index, 1);
-    renderEditFiles();
-}
-
-function renderEditFiles() {
-    const container = document.getElementById('editExistingFiles');
-    container.innerHTML = '';
-    
-    window.editUploadedFiles.forEach((file, index) => {
-        let icon = '📄';
-        if (file.type === 'image') icon = '🖼';
-        else if (file.type === 'audio') icon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16 10,8" fill="currentColor"/></svg>';
-        else if (file.type === 'pdf') icon = '📑';
-        
-        const el = document.createElement('div');
-        el.className = 'uploaded-file';
-        el.innerHTML = `
-            <div class="uploaded-file-icon">${icon}</div>
-            <div class="uploaded-file-info">
-                <div class="uploaded-file-name">${file.name}</div>
-                <div class="uploaded-file-size">${file.status === 'existing' ? 'Saved' : file.status === 'uploading' ? 'Uploading...' : 'Ready'}</div>
-            </div>
-            <span class="uploaded-file-remove" onclick="removeEditFile(${index})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>
-        `;
-        container.appendChild(el);
-    });
-}
-
-async function handleEditFileSelect(event) {
-    const files = event.target.files;
-    if (!files.length) return;
-    
-    for (const file of files) {
-        const fileData = {
-            name: file.name,
-            type: getFileType(file),
-            file: file,
-            status: 'uploading',
-            url: null
-        };
-        
-        window.editUploadedFiles.push(fileData);
-        renderEditFiles();
-        
-        try {
-            const storageRef = window.storageRef(window.storage, `gigs/${Date.now()}_${file.name}`);
-            const snapshot = await window.uploadBytes(storageRef, file);
-            const url = await window.getDownloadURL(snapshot.ref);
-            
-            fileData.url = url;
-            fileData.status = 'uploaded';
-            renderEditFiles();
-        } catch (error) {
-            console.error('Upload error:', error);
-            fileData.status = 'error';
-            renderEditFiles();
-        }
-    }
-    
-    event.target.value = '';
-}
 
 async function saveGigEdits() {
     const btn = document.querySelector('#screen8 .btn-primary');
@@ -1981,13 +1418,7 @@ async function saveGigEdits() {
             setLength: document.getElementById('editSetLength').value,
             notes: document.getElementById('editNotes').value,
             rehearsalLocation: document.getElementById('editRehearsalLocation').value,
-            streamingLink: document.getElementById('editStreamingLink').value,
-            setlist: window.editSetlistSongs,
-            files: window.editUploadedFiles.filter(f => f.url).map(f => ({
-                name: f.name,
-                type: f.type,
-                url: f.url
-            }))
+            streamingLink: document.getElementById('editStreamingLink').value
         };
         
         const gigRef = window.doc(window.db, "gigs", window.currentGigId);
